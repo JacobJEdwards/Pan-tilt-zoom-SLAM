@@ -1,2 +1,4 @@
 *.xml
-*.csv
+.csv
+dataset/soccer/images/
+*.pt
