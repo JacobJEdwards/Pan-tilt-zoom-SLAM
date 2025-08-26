@@ -36,17 +36,14 @@ class TransFunction:
         pan = radians(p)
         tilt = radians(t)
 
-        k = np.array([[f, 0, u],
-                      [0, f, v],
-                      [0, 0, 1]])
+        k = np.array([[f, 0, u], [0, f, v], [0, 0, 1]])
 
-        rotation = np.dot(np.array([[1, 0, 0],
-                                    [0, cos(tilt), sin(tilt)],
-                                    [0, -sin(tilt), cos(tilt)]]),
-
-                          np.array([[cos(pan), 0, -sin(pan)],
-                                    [0, 1, 0],
-                                    [sin(pan), 0, cos(pan)]]))
+        rotation = np.dot(
+            np.array(
+                [[1, 0, 0], [0, cos(tilt), sin(tilt)], [0, -sin(tilt), cos(tilt)]]
+            ),
+            np.array([[cos(pan), 0, -sin(pan)], [0, 1, 0], [sin(pan), 0, cos(pan)]]),
+        )
 
         rotation = np.dot(rotation, base_r)
 
@@ -74,23 +71,22 @@ class TransFunction:
         pan = radians(p)
         tilt = radians(t)
 
-        k = np.array([[f, 0, u],
-                      [0, f, v],
-                      [0, 0, 1]])
+        k = np.array([[f, 0, u], [0, f, v], [0, 0, 1]])
 
-        rotation = np.dot(np.array([[1, 0, 0],
-                                    [0, cos(tilt), sin(tilt)],
-                                    [0, -sin(tilt), cos(tilt)]]),
-
-                          np.array([[cos(pan), 0, -sin(pan)],
-                                    [0, 1, 0],
-                                    [sin(pan), 0, cos(pan)]]))
+        rotation = np.dot(
+            np.array(
+                [[1, 0, 0], [0, cos(tilt), sin(tilt)], [0, -sin(tilt), cos(tilt)]]
+            ),
+            np.array([[cos(pan), 0, -sin(pan)], [0, 1, 0], [sin(pan), 0, cos(pan)]]),
+        )
 
         rotation = np.dot(rotation, base_r)
 
         inv_mat = np.linalg.inv(np.dot(k, rotation))
 
-        coe = (z - c[2]) / (inv_mat[2, 0] * point2d[0] + inv_mat[2, 1] * point2d[1] + inv_mat[2, 2])
+        coe = (z - c[2]) / (
+            inv_mat[2, 0] * point2d[0] + inv_mat[2, 1] * point2d[1] + inv_mat[2, 2]
+        )
 
         p = np.dot(inv_mat, coe * np.array([point2d[0], point2d[1], 1])) + c
 
@@ -116,18 +112,31 @@ class TransFunction:
 
         # @todo how to get these equations?
         # @todo add these equations in the document
-        relative_pan = atan((tan(pan) * cos(camera_pan) - sin(camera_pan)) /
-                            (tan(pan) * sin(camera_pan) * cos(camera_tilt) +
-                             tan(tilt) * sqrt(tan(pan) * tan(pan) + 1) *
-                             sin(camera_tilt) + cos(camera_tilt) * cos(camera_pan)))
+        relative_pan = atan(
+            (tan(pan) * cos(camera_pan) - sin(camera_pan))
+            / (
+                tan(pan) * sin(camera_pan) * cos(camera_tilt)
+                + tan(tilt) * sqrt(tan(pan) * tan(pan) + 1) * sin(camera_tilt)
+                + cos(camera_tilt) * cos(camera_pan)
+            )
+        )
 
-        relative_tilt = atan(-(tan(pan) * sin(camera_tilt) * sin(camera_pan) -
-                               tan(tilt) * sqrt(tan(pan) * tan(pan) + 1) *
-                               cos(camera_tilt) + sin(camera_tilt) * cos(camera_pan)) /
-                             sqrt(pow(tan(pan) * cos(camera_pan) - sin(camera_pan), 2) +
-                                  pow(tan(pan) * sin(camera_pan) * cos(camera_tilt) +
-                                      tan(tilt) * sqrt(tan(pan) * tan(pan) + 1) *
-                                      sin(camera_tilt) + cos(camera_tilt) * cos(camera_pan), 2)))
+        relative_tilt = atan(
+            -(
+                tan(pan) * sin(camera_tilt) * sin(camera_pan)
+                - tan(tilt) * sqrt(tan(pan) * tan(pan) + 1) * cos(camera_tilt)
+                + sin(camera_tilt) * cos(camera_pan)
+            )
+            / sqrt(
+                pow(tan(pan) * cos(camera_pan) - sin(camera_pan), 2)
+                + pow(
+                    tan(pan) * sin(camera_pan) * cos(camera_tilt)
+                    + tan(tilt) * sqrt(tan(pan) * tan(pan) + 1) * sin(camera_tilt)
+                    + cos(camera_tilt) * cos(camera_pan),
+                    2,
+                )
+            )
+        )
 
         dx = f * tan(relative_pan)
         x = dx + u
@@ -157,13 +166,12 @@ class TransFunction:
         x3d_skim = tan(theta_skim)
         y3d_skim = -tan(phi_skim) * sqrt(pow(tan(theta_skim), 2) + 1)
 
-        rotation = np.dot(np.array([[1, 0, 0],
-                                    [0, cos(tilt), sin(tilt)],
-                                    [0, -sin(tilt), cos(tilt)]]),
-
-                          np.array([[cos(pan), 0, -sin(pan)],
-                                    [0, 1, 0],
-                                    [sin(pan), 0, cos(pan)]]))
+        rotation = np.dot(
+            np.array(
+                [[1, 0, 0], [0, cos(tilt), sin(tilt)], [0, -sin(tilt), cos(tilt)]]
+            ),
+            np.array([[cos(pan), 0, -sin(pan)], [0, 1, 0], [sin(pan), 0, cos(pan)]]),
+        )
 
         rotation = np.linalg.inv(rotation)
 
@@ -201,7 +209,7 @@ class TransFunction:
         theta = radians(t)
         phi = radians(p)
         x = tan(theta)
-        y = - tan(phi) * sqrt(pow(tan(theta), 2) + 1)
+        y = -tan(phi) * sqrt(pow(tan(theta), 2) + 1)
         return np.array([x, y, 1])
 
     @staticmethod
@@ -219,17 +227,14 @@ class TransFunction:
         pan = radians(p)
         tilt = radians(t)
 
-        k = np.array([[f, 0, u],
-                      [0, f, v],
-                      [0, 0, 1]])
+        k = np.array([[f, 0, u], [0, f, v], [0, 0, 1]])
 
-        rotation = np.dot(np.array([[1, 0, 0],
-                                    [0, cos(tilt), sin(tilt)],
-                                    [0, -sin(tilt), cos(tilt)]]),
-
-                          np.array([[cos(pan), 0, -sin(pan)],
-                                    [0, 1, 0],
-                                    [sin(pan), 0, cos(pan)]]))
+        rotation = np.dot(
+            np.array(
+                [[1, 0, 0], [0, cos(tilt), sin(tilt)], [0, -sin(tilt), cos(tilt)]]
+            ),
+            np.array([[cos(pan), 0, -sin(pan)], [0, 1, 0], [sin(pan), 0, cos(pan)]]),
+        )
 
         position = np.dot(k, np.dot(rotation, pos))
 
@@ -266,14 +271,18 @@ class TransFunction:
 
         if height != 0 and width != 0:
             for j in range(len(rays)):
-                tmp = TransFunction.from_pan_tilt_to_2d(u, v, f, pan, tilt, rays[j][0], rays[j][1])
+                tmp = TransFunction.from_pan_tilt_to_2d(
+                    u, v, f, pan, tilt, rays[j][0], rays[j][1]
+                )
                 if 0 < tmp[0] < width and 0 < tmp[1] < height:
-                    points = np.row_stack([points, np.asarray(tmp)])
+                    points = np.vstack([points, np.asarray(tmp)])
                     index = np.concatenate([index, [j]], axis=0)
         else:
             for j in range(len(rays)):
-                tmp = TransFunction.from_pan_tilt_to_2d(u, v, f, pan, tilt, rays[j][0], rays[j][1])
-                points = np.row_stack([points, np.asarray(tmp)])
+                tmp = TransFunction.from_pan_tilt_to_2d(
+                    u, v, f, pan, tilt, rays[j][0], rays[j][1]
+                )
+                points = np.vstack([points, np.asarray(tmp)])
 
         return points, index
 
@@ -291,14 +300,18 @@ class TransFunction:
         """
         rays = np.ndarray([0, 2])
         for i in range(len(points)):
-            angles = TransFunction.from_2d_to_pan_tilt(u, v, f, pan, tilt, points[i][0], points[i][1])
-            rays = np.row_stack([rays, angles])
+            angles = TransFunction.from_2d_to_pan_tilt(
+                u, v, f, pan, tilt, points[i][0], points[i][1]
+            )
+            rays = np.vstack([rays, angles])
         return rays
 
     """below is function for general slam"""
 
     @staticmethod
-    def from_3dpoints_to_image(pan, tilt, f, rays, u, v, center, rotation, height=0, width=0):
+    def from_3dpoints_to_image(
+        pan, tilt, f, rays, u, v, center, rotation, height=0, width=0
+    ):
         """
         from a number of points to corresponding rays im image.
         :param pan: camera pan
@@ -316,14 +329,18 @@ class TransFunction:
 
         if height != 0 and width != 0:
             for j in range(len(rays)):
-                tmp = TransFunction.from_3dpoint_to_image(u, v, f, pan, tilt, center, rotation, rays[j])
+                tmp = TransFunction.from_3dpoint_to_image(
+                    u, v, f, pan, tilt, center, rotation, rays[j]
+                )
                 if 0 < tmp[0] < width and 0 < tmp[1] < height:
-                    points = np.row_stack([points, np.asarray(tmp)])
+                    points = np.vstack([points, np.asarray(tmp)])
                     index = np.concatenate([index, [j]], axis=0)
         else:
             for j in range(len(rays)):
-                tmp = TransFunction.from_3dpoint_to_image(u, v, f, pan, tilt, center, rotation, rays[j])
-                points = np.row_stack([points, np.asarray(tmp)])
+                tmp = TransFunction.from_3dpoint_to_image(
+                    u, v, f, pan, tilt, center, rotation, rays[j]
+                )
+                points = np.vstack([points, np.asarray(tmp)])
 
         return points, index
 
@@ -341,7 +358,9 @@ class TransFunction:
         """
         rays = np.ndarray([0, 3])
         for i in range(len(points)):
-            position = TransFunction.from_2d_to_3d(u, v, f, pan, tilt, center, rotation, points[i])
-            rays = np.row_stack([rays, position])
+            position = TransFunction.from_2d_to_3d(
+                u, v, f, pan, tilt, center, rotation, points[i]
+            )
+            rays = np.vstack([rays, position])
 
         return rays

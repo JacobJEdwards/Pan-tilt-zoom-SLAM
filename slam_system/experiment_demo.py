@@ -7,18 +7,21 @@ import cv2 as cv
 import numpy as np
 import math
 import copy
-import random
+
 
 def ut_single_image():
-    sequence = SequenceManager(annotation_path="../../dataset/basketball/ground_truth.mat",
-                               image_path="../../dataset/synthesized/images")
+    sequence = SequenceManager(
+        annotation_path="../../dataset/basketball/ground_truth.mat",
+        image_path="../../dataset/synthesized/images",
+    )
 
-    gt_pan, gt_tilt, gt_f = load_camera_pose("../../dataset/synthesized/synthesize_ground_truth.mat", separate=True)
+    gt_pan, gt_tilt, gt_f = load_camera_pose(
+        "../../dataset/synthesized/synthesize_ground_truth.mat", separate=True
+    )
 
     # read image and ground truth pose
-    im = cv.imread('../../dataset/synthesized/images/0.jpg', 0)
+    im = cv.imread("../../dataset/synthesized/images/0.jpg", 0)
     pan, tilt, fl = gt_pan[0], gt_tilt[0], gt_f[0]
-    gt_pose = [pan, tilt, fl]
     camera = sequence.camera
     camera.set_ptz((pan, tilt, fl))
 
@@ -32,7 +35,6 @@ def ut_single_image():
 
     from relocalization import _compute_residual
     from scipy.optimize import least_squares
-    from transformation import TransFunction
 
     def robust_test(variance, camera):
         """
@@ -51,11 +53,16 @@ def ut_single_image():
         init_pose[2] = fl + np.random.normal(0, 150)
 
         # optimized the camera pose
-        optimized_pose = least_squares(_compute_residual, init_pose, verbose=0, x_scale='jac', ftol=1e-4, method='trf',
-                                       args=(rays, noise_pts, im_w / 2, im_h / 2))
+        optimized_pose = least_squares(
+            _compute_residual,
+            init_pose,
+            x_scale="jac",
+            ftol=1e-4,
+            args=(rays, noise_pts, im_w / 2, im_h / 2),
+        )
         optimzied_ptz = optimized_pose.x
-        #print('ground truth: {}'.format(gt_pose))
-        #print('estiamted pose: {}'.format(optimzied_ptz))
+        # print('ground truth: {}'.format(gt_pose))
+        # print('estiamted pose: {}'.format(optimzied_ptz))
 
         # compute reprojection error
         estimated_camera = copy.deepcopy(camera)
@@ -70,7 +77,7 @@ def ut_single_image():
             reprojection_error[i] = math.sqrt(dx * dx + dy * dy)
         # print(reprojection_error[0:10])
         m, std = np.mean(reprojection_error), np.std(reprojection_error)
-        #print('mean std: {} {}'.format(m, std))
+        # print('mean std: {} {}'.format(m, std))
         return m
 
     variances = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
@@ -83,7 +90,7 @@ def ut_single_image():
             m = robust_test(v, camera)
             error_mean[i] = m
         m, std = np.mean(error_mean), np.std(error_mean)
-        print('noise, mean, std: {} {} {}'.format(v, m, std))
+        print("noise, mean, std: {} {} {}".format(v, m, std))
 
 
 if __name__ == "__main__":

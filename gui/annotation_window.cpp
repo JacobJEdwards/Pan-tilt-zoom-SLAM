@@ -17,7 +17,7 @@ AnnotationWindow::AnnotationWindow(cv::String name, std::string index)
 #ifdef _WIN32
 	io_util::readModel("./resource/ice_hockey_model.txt", points_, pairs_);
 #elif __APPLE__
-	io_util::readModel("/Users/jimmy/Code/ptz_slam/Pan-tilt-zoom-SLAM/gui/resource/ice_hockey_model.txt", points_, pairs_);
+	io_util::readModel("/Users/jacobedwards/dev/Pan-tilt-zoom-SLAM/gui/resource/ice_hockey_model.txt", points_, pairs_);
 #endif
 }
 

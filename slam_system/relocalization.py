@@ -32,8 +32,9 @@ def _compute_residual(pose, rays, points, u, v):
     residual = np.ndarray([2 * len(rays)])
 
     for i in range(len(rays)):
-        reproject_x, reproject_y = TransFunction.from_ray_to_image(u, v, pose[2], pose[0], pose[1], rays[i, 0],
-                                                                     rays[i, 1])
+        reproject_x, reproject_y = TransFunction.from_ray_to_image(
+            u, v, pose[2], pose[0], pose[1], rays[i, 0], rays[i, 1]
+        )
         residual[2 * i] = reproject_x - points[i, 0]
         residual[2 * i + 1] = reproject_y - points[i, 1]
 
@@ -50,9 +51,11 @@ def _recompute_matching_ray(keyframe, img, feature_method):
     bounding_box = np.ones([720, 1280])
     bounding_box[13:51, 303:976] = 0
 
-    if feature_method == 'sift':
+    if feature_method == "sift":
         kp, des = detect_compute_sift_array(img, 1000, norm=False)
-        keyframe_kp, keyframe_des = detect_compute_sift_array(keyframe.img, 1000, norm=False)
+        keyframe_kp, keyframe_des = detect_compute_sift_array(
+            keyframe.img, 1000, norm=False
+        )
 
         bounding_box_mask_index = keypoints_masking(kp, bounding_box)
         kp = kp[bounding_box_mask_index]
@@ -68,15 +71,21 @@ def _recompute_matching_ray(keyframe, img, feature_method):
         # kp = add_outliers_cv_keypoints(kp, 1, 1280, 720, 40)
         # keyframe_kp = add_outliers_cv_keypoints(keyframe_kp, 1, 1280, 720, 40)
 
-        pt1, index1, pt2, index2 = match_sift_features(kp, des, keyframe_kp, keyframe_des, pts_array=True)
-    elif feature_method == 'orb':
+        pt1, index1, pt2, index2 = match_sift_features(
+            kp, des, keyframe_kp, keyframe_des, pts_array=True
+        )
+    elif feature_method == "orb":
         kp, des = detect_compute_orb(img, 6000)
         keyframe_kp, keyframe_des = detect_compute_orb(keyframe.img, 6000)
-        pt1, index1, pt2, index2 = match_orb_features(kp, des, keyframe_kp, keyframe_des)
-    elif feature_method == 'latch':
+        pt1, index1, pt2, index2 = match_orb_features(
+            kp, des, keyframe_kp, keyframe_des
+        )
+    elif feature_method == "latch":
         kp, des = detect_compute_latch(img, 5000)
         keyframe_kp, keyframe_des = detect_compute_latch(keyframe.img, 5000)
-        pt1, index1, pt2, index2 = match_latch_features(kp, des, keyframe_kp, keyframe_des)
+        pt1, index1, pt2, index2 = match_latch_features(
+            kp, des, keyframe_kp, keyframe_des
+        )
     else:
         assert False
 
@@ -87,8 +96,15 @@ def _recompute_matching_ray(keyframe, img, feature_method):
     rays = np.ndarray([len(index2), 2])
 
     for i in range(len(index2)):
-        rays[i, 0], rays[i, 1] = TransFunction.from_image_to_ray(keyframe.u, keyframe.v, keyframe.f,
-                                                                   keyframe.pan, keyframe.tilt, pt2[i, 0], pt2[i, 1])
+        rays[i, 0], rays[i, 1] = TransFunction.from_image_to_ray(
+            keyframe.u,
+            keyframe.v,
+            keyframe.f,
+            keyframe.pan,
+            keyframe.tilt,
+            pt2[i, 0],
+            pt2[i, 1],
+        )
 
     return pt1, rays
 
@@ -104,17 +120,16 @@ def relocalization_camera(map, img, pose):
     bounding_box = np.ones([720, 1280])
     bounding_box[13:51, 303:976] = 0
 
-    if map.feature_method == 'sift':
+    if map.feature_method == "sift":
         kp, des = detect_compute_sift_array(img, 300, norm=False)
 
         bounding_box_mask_index = keypoints_masking(kp, bounding_box)
         kp = kp[bounding_box_mask_index]
         des = des[bounding_box_mask_index]
 
-
-    elif map.feature_method == 'orb':
+    elif map.feature_method == "orb":
         kp, des = detect_compute_orb(img, 6000)
-    elif map.feature_method == 'latch':
+    elif map.feature_method == "latch":
         kp, des = detect_compute_latch(img, 5000)
     else:
         assert False
@@ -130,17 +145,19 @@ def relocalization_camera(map, img, pose):
         keyframe = map.keyframe_list[i]
         # keyframe_kp, keyframe_des = keyframe.feature_pts, keyframe.feature_des
 
-        if map.feature_method == 'sift':
+        if map.feature_method == "sift":
             # keyframe_kp, keyframe_des = keyframe.feature_pts, keyframe.feature_des
-            keyframe_kp, keyframe_des = detect_compute_sift_array(keyframe.img, 300, norm=False)
+            keyframe_kp, keyframe_des = detect_compute_sift_array(
+                keyframe.img, 300, norm=False
+            )
 
             bounding_box_mask_index = keypoints_masking(keyframe_kp, bounding_box)
             keyframe_kp = keyframe_kp[bounding_box_mask_index]
             keyframe_des = keyframe_des[bounding_box_mask_index]
 
-        elif map.feature_method == 'orb':
+        elif map.feature_method == "orb":
             keyframe_kp, keyframe_des = detect_compute_orb(keyframe.img, 6000)
-        elif map.feature_method == 'latch':
+        elif map.feature_method == "latch":
             keyframe_kp, keyframe_des = detect_compute_latch(keyframe.img, 5000)
         else:
             assert False
@@ -150,12 +167,18 @@ def relocalization_camera(map, img, pose):
 
         print("number", len(keyframe_kp), len(kp))
 
-        if map.feature_method == 'sift':
-            pt1, index1, pt2, index2 = match_sift_features(keyframe_kp, keyframe_des, kp, des, pts_array=True)
-        elif map.feature_method == 'orb':
-            pt1, index1, pt2, index2 = match_orb_features(keyframe_kp, keyframe_des, kp, des)
-        elif map.feature_method == 'latch':
-            pt1, index1, pt2, index2 = match_latch_features(keyframe_kp, keyframe_des, kp, des)
+        if map.feature_method == "sift":
+            pt1, index1, pt2, index2 = match_sift_features(
+                keyframe_kp, keyframe_des, kp, des, pts_array=True
+            )
+        elif map.feature_method == "orb":
+            pt1, index1, pt2, index2 = match_orb_features(
+                keyframe_kp, keyframe_des, kp, des
+            )
+        elif map.feature_method == "latch":
+            pt1, index1, pt2, index2 = match_latch_features(
+                keyframe_kp, keyframe_des, kp, des
+            )
         else:
             assert False
 
@@ -183,18 +206,27 @@ def relocalization_camera(map, img, pose):
         v = keyframe.v
 
         # optimized the camera pose
-        optimized_pose = least_squares(_compute_residual, pose, verbose=2, x_scale='jac', ftol=1e-4, method='trf',
-                                       args=(rays, points, u, v))
+        optimized_pose = least_squares(
+            _compute_residual,
+            pose,
+            verbose=2,
+            x_scale="jac",
+            ftol=1e-4,
+            method="trf",
+            args=(rays, points, u, v),
+        )
 
         return optimized_pose.x
 
 
 def ut_relocalization():
     """unit test for relocalization"""
-    obj = SequenceManager("../../dataset/basketball/basketball_anno.mat",
-                               "../../dataset/basketball/images",
-                               "../../dataset/basketball/basketball_ground_truth.mat",
-                               "../../dataset/basketball/objects_basketball.mat")
+    obj = SequenceManager(
+        "../../dataset/basketball/basketball_anno.mat",
+        "../../dataset/basketball/images",
+        "../../dataset/basketball/basketball_ground_truth.mat",
+        "../../dataset/basketball/objects_basketball.mat",
+    )
     img1 = 0
     img2 = 390
 
@@ -209,10 +241,28 @@ def ut_relocalization():
 
     camera = obj.get_camera(0)
 
-    keyframe1 = KeyFrame(gray1, img1, camera.camera_center, camera.base_rotation,
-                         camera.principal_point[0], camera.principal_point[1], pose1[0], pose1[1], pose1[2])
-    keyframe2 = KeyFrame(gray2, img2, camera.camera_center, camera.base_rotation,
-                         camera.principal_point[0], camera.principal_point[1], pose2[0], pose2[1], pose2[2])
+    keyframe1 = KeyFrame(
+        gray1,
+        img1,
+        camera.camera_center,
+        camera.base_rotation,
+        camera.principal_point[0],
+        camera.principal_point[1],
+        pose1[0],
+        pose1[1],
+        pose1[2],
+    )
+    keyframe2 = KeyFrame(
+        gray2,
+        img2,
+        camera.camera_center,
+        camera.base_rotation,
+        camera.principal_point[0],
+        camera.principal_point[1],
+        pose2[0],
+        pose2[1],
+        pose2[2],
+    )
 
     kp1, des1 = detect_compute_sift(gray1, 100)
     after_removed_index1 = keypoints_masking(kp1, mask1)
@@ -232,8 +282,10 @@ def ut_relocalization():
 
     kp1_inlier, index1, kp2_inlier, index2 = match_sift_features(kp1, des1, kp2, des2)
 
-    cv.imshow("test",
-              draw_matches(obj.get_image(img1), obj.get_image(img2), kp1_inlier, kp2_inlier))
+    cv.imshow(
+        "test",
+        draw_matches(obj.get_image(img1), obj.get_image(img2), kp1_inlier, kp2_inlier),
+    )
     cv.waitKey(0)
 
     map = Map()
@@ -241,7 +293,8 @@ def ut_relocalization():
     """first frame"""
     for i in range(len(kp1)):
         theta, phi = TransFunction.from_image_to_ray(
-            obj.u, obj.v, pose1[2], pose1[0], pose1[1], kp1[i].pt[0], kp1[i].pt[1])
+            obj.u, obj.v, pose1[2], pose1[0], pose1[1], kp1[i].pt[0], kp1[i].pt[1]
+        )
 
         map.global_ray.append(np.array([theta, phi]))
 
@@ -256,8 +309,14 @@ def ut_relocalization():
 
     for i in range(len(kp2_outlier_index)):
         theta, phi = TransFunction.from_image_to_ray(
-            obj.u, obj.v, pose2[2], pose2[0], pose2[1], kp2[kp2_outlier_index[i]].pt[0],
-            kp2[kp2_outlier_index[i]].pt[1])
+            obj.u,
+            obj.v,
+            pose2[2],
+            pose2[0],
+            pose2[1],
+            kp2[kp2_outlier_index[i]].pt[0],
+            kp2[kp2_outlier_index[i]].pt[1],
+        )
         map.global_ray.append(np.array([theta, phi]))
 
         keyframe2.landmark_index[kp2_outlier_index[i]] = len(map.global_ray) - 1
@@ -267,11 +326,13 @@ def ut_relocalization():
 
     pose_test = obj.get_ptz(142)
 
-    optimized = relocalization_camera(map=map, img=obj.get_image_gray(142), pose=np.array([20, -16, 3000]))
+    optimized = relocalization_camera(
+        map=map, img=obj.get_image_gray(142), pose=np.array([20, -16, 3000])
+    )
 
     print(pose_test)
     print(optimized.x)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ut_relocalization()

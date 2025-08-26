@@ -4,15 +4,9 @@ Homography based frame-to-frame matching
 
 """
 
-import scipy.io as sio
-import cv2 as cv
-import copy
 
 from sequence_manager import SequenceManager
-from scene_map import Map
-from key_frame import KeyFrame
-from relocalization import relocalization_camera
-from ptz_camera import PTZCamera, estimate_camera_from_homography
+from ptz_camera import estimate_camera_from_homography
 from image_process import *
 from util import *
 from visualize import *
@@ -23,8 +17,12 @@ class HomographyTracking:
         self.current_frame = first_frame
         self.first_matrix = first_frame_matrix
 
-        self.accumulate_matrix = [first_frame_matrix, ]
-        self.each_homography = [None, ]
+        self.accumulate_matrix = [
+            first_frame_matrix,
+        ]
+        self.each_homography = [
+            None,
+        ]
 
     def tracking(self, next_frame):
         kp1 = detect_sift(self.current_frame, 100)
@@ -47,16 +45,22 @@ class HomographyTracking:
 
 
 def soccer3():
-    sequence = SequenceManager("../../dataset/soccer_dataset/seq3/seq3_ground_truth.mat",
-                               "../../dataset/soccer_dataset/seq3/seq3_330",
-                               "../../dataset/soccer_dataset/seq3/seq3_ground_truth.mat",
-                               "../../dataset/soccer_dataset/seq3/seq3_player_bounding_box.mat")
+    sequence = SequenceManager(
+        "../../dataset/soccer_dataset/seq3/seq3_ground_truth.mat",
+        "../../dataset/soccer_dataset/seq3/seq3_330",
+        "../../dataset/soccer_dataset/seq3/seq3_ground_truth.mat",
+        "../../dataset/soccer_dataset/seq3/seq3_player_bounding_box.mat",
+    )
 
-    line_index, points = load_model("../../dataset/soccer_dataset/highlights_soccer_model.mat")
+    line_index, points = load_model(
+        "../../dataset/soccer_dataset/highlights_soccer_model.mat"
+    )
 
-    first_frame_ptz = (sequence.ground_truth_pan[0],
-                       sequence.ground_truth_tilt[0],
-                       sequence.ground_truth_f[0])
+    first_frame_ptz = (
+        sequence.ground_truth_pan[0],
+        sequence.ground_truth_tilt[0],
+        sequence.ground_truth_f[0],
+    )
 
     first_camera = sequence.camera
     first_camera.set_ptz(first_frame_ptz)
@@ -87,7 +91,9 @@ def soccer3():
         # compute ptz
 
         first_camera.set_ptz((pan[-1], tilt[-1], f[-1]))
-        pose = estimate_camera_from_homography(tracking_obj.accumulate_matrix[-1], first_camera, points3d_on_field)
+        pose = estimate_camera_from_homography(
+            tracking_obj.accumulate_matrix[-1], first_camera, points3d_on_field
+        )
 
         print("-----" + str(i) + "--------")
 
@@ -110,23 +116,29 @@ def soccer3():
         # cv.imshow("image2", img2)
         # cv.waitKey(0)
 
-    save_camera_pose(np.array(pan), np.array(tilt), np.array(f),
-                     "C:/graduate_design/experiment_result/baseline2/2-gauss.mat")
+    save_camera_pose(
+        np.array(pan),
+        np.array(tilt),
+        np.array(f),
+        "C:/graduate_design/experiment_result/baseline2/2-gauss.mat",
+    )
 
 
 def synthesized_test():
-    sequence = SequenceManager(annotation_path="../../dataset/basketball/ground_truth.mat",
-                               image_path="../../dataset/synthesized/images")
+    sequence = SequenceManager(
+        annotation_path="../../dataset/basketball/ground_truth.mat",
+        image_path="../../dataset/synthesized/images",
+    )
 
-    gt_pan, gt_tilt, gt_f = load_camera_pose("../../dataset/synthesized/synthesize_ground_truth.mat", separate=True)
+    gt_pan, gt_tilt, gt_f = load_camera_pose(
+        "../../dataset/synthesized/synthesize_ground_truth.mat", separate=True
+    )
 
     line_index, points = load_model("../../dataset/basketball/basketball_model.mat")
 
     begin_frame = 2400
 
-    first_frame_ptz = (gt_pan[begin_frame],
-                       gt_tilt[begin_frame],
-                       gt_f[begin_frame])
+    first_frame_ptz = (gt_pan[begin_frame], gt_tilt[begin_frame], gt_f[begin_frame])
 
     first_camera = sequence.camera
     first_camera.set_ptz(first_frame_ptz)
@@ -157,7 +169,9 @@ def synthesized_test():
         # compute ptz
 
         first_camera.set_ptz((pan[-1], tilt[-1], f[-1]))
-        pose = estimate_camera_from_homography(tracking_obj.accumulate_matrix[-1], first_camera, points3d_on_field)
+        pose = estimate_camera_from_homography(
+            tracking_obj.accumulate_matrix[-1], first_camera, points3d_on_field
+        )
 
         print("-----" + str(i) + "--------")
 
@@ -180,8 +194,13 @@ def synthesized_test():
         # cv.imshow("image2", img2)
         # cv.waitKey(0)
 
-    save_camera_pose(np.array(pan), np.array(tilt), np.array(f),
-                     "C:/graduate_design/experiment_result/baseline2/2-gauss.mat")
+    save_camera_pose(
+        np.array(pan),
+        np.array(tilt),
+        np.array(f),
+        "C:/graduate_design/experiment_result/baseline2/2-gauss.mat",
+    )
+
 
 if __name__ == "__main__":
     synthesized_test()

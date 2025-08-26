@@ -28,9 +28,13 @@ class PinholeCamera:
         self.principal_point == pp
 
     def project_3d_point(self, p):
-        K = np.array([[self.focal_length, 0, self.principal_point[0]],
-                      [0, self.focal_length, self.principal_point[1]],
-                      [0, 0, 1]])
+        K = np.array(
+            [
+                [self.focal_length, 0, self.principal_point[0]],
+                [0, self.focal_length, self.principal_point[1]],
+                [0, 0, 1],
+            ]
+        )
 
         point2d = np.dot(K, np.dot(self.rotation, p - self.camera_center))
 
@@ -38,24 +42,28 @@ class PinholeCamera:
 
 
 def ut_hockey_before_optimize_visualize():
-    files = glob.glob("../../ice_hockey_1/olympic_2010_reference_frame/annotation/*.txt")
+    files = glob.glob(
+        "../../ice_hockey_1/olympic_2010_reference_frame/annotation/*.txt"
+    )
     N = len(files)
 
     annotation = sio.loadmat("../../ice_hockey_1/olympic_2010_reference_frame.mat")
     filename = annotation["images"]
 
     hockey_model = sio.loadmat("../../ice_hockey_1/ice_hockey_model.mat")
-    points = hockey_model['points']
-    line_index = hockey_model['line_segment_index']
+    points = hockey_model["points"]
+    line_index = hockey_model["line_segment_index"]
 
     for i in range(N):
         file_name = files[i]
 
-        data = np.loadtxt(file_name, delimiter='\t', skiprows=2)
+        data = np.loadtxt(file_name, delimiter="\t", skiprows=2)
 
         camera = PinholeCamera(data[0:2], data[2], data[3:6], data[6:9])
 
-        img = cv.imread("../../ice_hockey_1/olympic_2010_reference_frame/image/" + filename[i])
+        img = cv.imread(
+            "../../ice_hockey_1/olympic_2010_reference_frame/image/" + filename[i]
+        )
 
         image_points = np.ndarray([len(points), 2])
 
@@ -69,8 +77,13 @@ def ut_hockey_before_optimize_visualize():
             begin = line_index[j][0]
             end = line_index[j][1]
 
-            cv.line(img, (int(image_points[begin][0]), int(image_points[begin][1])),
-                    (int(image_points[end][0]), int(image_points[end][1])), (0, 0, 255), 2)
+            cv.line(
+                img,
+                (int(image_points[begin][0]), int(image_points[begin][1])),
+                (int(image_points[end][0]), int(image_points[end][1])),
+                (0, 0, 255),
+                2,
+            )
 
         cv.imshow("result", img)
         cv.waitKey(0)

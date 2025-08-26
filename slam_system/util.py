@@ -14,10 +14,10 @@ from sys import platform as sys_pf
 
 import matplotlib
 
-if sys_pf == 'darwin':
+if sys_pf == "darwin":
     matplotlib.use("TkAgg")
-elif sys_pf == 'win32':
-    matplotlib.use('Qt4Agg')
+elif sys_pf == "win32":
+    matplotlib.use("Qt4Agg")
 
 import matplotlib.pyplot as plt
 
@@ -29,9 +29,7 @@ def get_projection_matrix_with_camera(camera):
     :param camera: len = 9 array(principle point, f, Rx, Ry, Rz, Cx, Cy, Cz)
     :return: 3 * 4 projection matrix
     """
-    k = np.array([[camera[2], 0, camera[0]],
-                  [0, camera[2], camera[1]],
-                  [0, 0, 1]])
+    k = np.array([[camera[2], 0, camera[0]], [0, camera[2], camera[1]], [0, 0, 1]])
 
     rod = camera[3:6]
     rotation = np.zeros((3, 3))
@@ -203,8 +201,14 @@ def uniform_point_sample_on_field(x_max, y_max, x_num, y_num):
     return np.array(point_list)
 
 
-def draw_camera_plot(ground_truth_pan, ground_truth_tilt, ground_truth_f,
-                     estimate_pan, estimate_tilt, estimate_f):
+def draw_camera_plot(
+    ground_truth_pan,
+    ground_truth_tilt,
+    ground_truth_f,
+    estimate_pan,
+    estimate_tilt,
+    estimate_f,
+):
     """
     draw plot for ground truth and estimated camera pose.
     """
@@ -213,21 +217,33 @@ def draw_camera_plot(ground_truth_pan, ground_truth_tilt, ground_truth_f,
 
     plt.figure("pan percentage error")
     x = np.array([i for i in range(sequence_length)])
-    plt.plot(x, (estimate_pan - ground_truth_pan) / ground_truth_pan * 100, 'b', label='predict')
+    plt.plot(
+        x,
+        (estimate_pan - ground_truth_pan) / ground_truth_pan * 100,
+        "b",
+        label="predict",
+    )
     plt.xlabel("frame")
     plt.ylabel("error %")
     plt.legend(loc="best")
 
     plt.figure("tilt percentage error")
     x = np.array([i for i in range(sequence_length)])
-    plt.plot(x, (estimate_tilt - ground_truth_tilt) / ground_truth_tilt * 100, 'b', label='predict')
+    plt.plot(
+        x,
+        (estimate_tilt - ground_truth_tilt) / ground_truth_tilt * 100,
+        "b",
+        label="predict",
+    )
     plt.xlabel("frame")
     plt.ylabel("error %")
     plt.legend(loc="best")
 
     plt.figure("f percentage error")
     x = np.array([i for i in range(sequence_length)])
-    plt.plot(x, (estimate_f - ground_truth_f) / ground_truth_f * 100, 'b', label='predict')
+    plt.plot(
+        x, (estimate_f - ground_truth_f) / ground_truth_f * 100, "b", label="predict"
+    )
     plt.xlabel("frame")
     plt.ylabel("error %")
     plt.legend(loc="best")
@@ -235,24 +251,24 @@ def draw_camera_plot(ground_truth_pan, ground_truth_tilt, ground_truth_f,
     """absolute value"""
     plt.figure("pan")
     x = np.array([i for i in range(sequence_length)])
-    plt.plot(x, ground_truth_pan, 'r', label='ground truth')
-    plt.plot(x, estimate_pan, 'b', label='predict')
+    plt.plot(x, ground_truth_pan, "r", label="ground truth")
+    plt.plot(x, estimate_pan, "b", label="predict")
     plt.xlabel("frame")
     plt.ylabel("pan angle")
     plt.legend(loc="best")
 
     plt.figure("tilt")
     x = np.array([i for i in range(sequence_length)])
-    plt.plot(x, ground_truth_tilt, 'r', label='ground truth')
-    plt.plot(x, estimate_tilt, 'b', label='predict')
+    plt.plot(x, ground_truth_tilt, "r", label="ground truth")
+    plt.plot(x, estimate_tilt, "b", label="predict")
     plt.xlabel("frame")
     plt.ylabel("tilt angle")
     plt.legend(loc="best")
 
     plt.figure("f")
     x = np.array([i for i in range(sequence_length)])
-    plt.plot(x, ground_truth_f, 'r', label='ground truth')
-    plt.plot(x, estimate_f, 'b', label='predict')
+    plt.plot(x, ground_truth_f, "r", label="ground truth")
+    plt.plot(x, estimate_f, "b", label="predict")
     plt.xlabel("frame")
     plt.ylabel("f")
     plt.legend(loc="best")
@@ -270,9 +286,9 @@ def save_camera_pose(pan, tilt, f, path):
     :param path: folder path for mat file
     """
     camera_pose = dict()
-    camera_pose['pan'] = pan
-    camera_pose['tilt'] = tilt
-    camera_pose['f'] = f
+    camera_pose["pan"] = pan
+    camera_pose["tilt"] = tilt
+    camera_pose["f"] = f
 
     sio.savemat(path, mdict=camera_pose)
 
@@ -287,12 +303,12 @@ def load_camera_pose(path, separate=False):
     camera_pos = sio.loadmat(path)
 
     if separate:
-        pan = camera_pos['pan'].squeeze()
-        tilt = camera_pos['tilt'].squeeze()
-        focal_length = camera_pos['f'].squeeze()
+        pan = camera_pos["pan"].squeeze()
+        tilt = camera_pos["tilt"].squeeze()
+        focal_length = camera_pos["f"].squeeze()
 
     else:
-        ptz = camera_pos['ptz']
+        ptz = camera_pos["ptz"]
         pan, tilt, focal_length = ptz[:, 0], ptz[:, 1], ptz[:, 2]
 
     return pan, tilt, focal_length
@@ -382,6 +398,7 @@ def merge_ptz(path_list):
 def ut_add_gaussian():
     import numpy as np
     import matplotlib
+
     matplotlib.use("TkAgg")
     import matplotlib.pyplot as plt
     import random
@@ -399,11 +416,11 @@ def ut_add_gaussian():
     dif = noise_points - points
 
     f = plt.figure()
-    plt.plot(dif[:, 0], dif[:, 1], '.')
+    plt.plot(dif[:, 0], dif[:, 1], ".")
     plt.show()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # video_capture(
     # "/hdd/luke/hockey_data/USA 2-3 Canada - Men's Ice Hockey Gold Medal Match _ Vancouver 2010 Winter Olympics.mp4",
     #               "/hdd/luke/hockey_data/Olympic_2010/images/", 4072000, 25, 625)
@@ -440,7 +457,9 @@ if __name__ == '__main__':
 
     gt_p, gt_t, gt_f = load_camera_pose("../../dataset/basketball/ground_truth.mat")
     # gt_p, gt_t, gt_f = load_camera_pose("../../dataset/soccer_dataset/seq3/seq3_ground_truth.mat")
-    p, t, f = load_camera_pose("C:/graduate_design/experiment_result/previous_basketball/camera_pose.mat", True)
+    p, t, f = load_camera_pose(
+        "C:/graduate_design/experiment_result/previous_basketball/camera_pose.mat", True
+    )
 
     draw_camera_plot(gt_p, gt_t, gt_f, p, t, f)
 

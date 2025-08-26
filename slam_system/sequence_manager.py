@@ -17,8 +17,13 @@ import scipy.signal as sig
 
 
 class SequenceManager:
-    def __init__(self, annotation_path=None, image_path=None, ground_truth_path=None, bounding_box_path=None):
-
+    def __init__(
+        self,
+        annotation_path=None,
+        image_path=None,
+        ground_truth_path=None,
+        bounding_box_path=None,
+    ):
         self.height = 720
         self.width = 1280
 
@@ -26,8 +31,8 @@ class SequenceManager:
         if annotation_path is not None:
             seq = sio.loadmat(annotation_path)
             annotation = seq["annotation"]
-            meta = seq['meta']
-            u, v = annotation[0][0]['camera'][0][0:2]
+            meta = seq["meta"]
+            u, v = annotation[0][0]["camera"][0][0:2]
             base_rotation = np.zeros([3, 3])
             cv.Rodrigues(meta[0][0]["base_rotation"][0], base_rotation)
             c = meta[0][0]["cc"][0]
@@ -40,14 +45,19 @@ class SequenceManager:
 
         # ground truth
         if ground_truth_path is not None:
-            self.ground_truth_pan, self.ground_truth_tilt, self.ground_truth_f = load_camera_pose(ground_truth_path)
+            self.ground_truth_pan, self.ground_truth_tilt, self.ground_truth_f = (
+                load_camera_pose(ground_truth_path)
+            )
             self.length = len(self.ground_truth_pan)
 
         # bounding boxes
         if bounding_box_path is not None:
             self.bounding_box = []
             if bounding_box_path:
-                self.bounding_box = sio.loadmat(bounding_box_path)['bounding_box']
+                self.bounding_box = sio.loadmat(bounding_box_path)["bounding_box"]
+
+    def __len__(self):
+        return self.length
 
     def get_image_gray(self, index, dataset_type=0):
         """
@@ -57,12 +67,20 @@ class SequenceManager:
         """
 
         if dataset_type == 0:
-            img = cv.imread(self.image_path + "/000" + str(index + 84000) + ".jpg", cv.IMREAD_GRAYSCALE)
+            img = cv.imread(
+                self.image_path + "/000" + str(index + 84000) + ".jpg",
+                cv.IMREAD_GRAYSCALE,
+            )
         elif dataset_type == 1:
-            img = cv.imread(self.image_path + "/00000" + str(index + 515) + ".jpg", cv.IMREAD_GRAYSCALE)
+            img = cv.imread(
+                self.image_path + "/00000" + str(index + 515) + ".jpg",
+                cv.IMREAD_GRAYSCALE,
+            )
             # img = cv.imread(self.image_path + "/0" + str(index + 500) + ".jpg")
         elif dataset_type == 2:
-            img = cv.imread(self.image_path + "/" + str(index) + ".jpg", cv.IMREAD_GRAYSCALE)
+            img = cv.imread(
+                self.image_path + "/" + str(index) + ".jpg", cv.IMREAD_GRAYSCALE
+            )
         else:
             print("Unknown dataset!")
             return None
@@ -79,11 +97,17 @@ class SequenceManager:
         """
 
         if dataset_type == 0:
-            img = cv.imread(self.image_path + "/000" + str(index + 84000) + ".jpg", cv.IMREAD_COLOR)
+            img = cv.imread(
+                self.image_path + "/000" + str(index + 84000) + ".jpg", cv.IMREAD_COLOR
+            )
         elif dataset_type == 1:
-            img = cv.imread(self.image_path + "/00000" + str(index + 515) + ".jpg", cv.IMREAD_COLOR)
+            img = cv.imread(
+                self.image_path + "/00000" + str(index + 515) + ".jpg", cv.IMREAD_COLOR
+            )
         elif dataset_type == 2:
-            img = cv.imread(self.image_path + "/" + str(index) + ".jpg", cv.IMREAD_COLOR)
+            img = cv.imread(
+                self.image_path + "/" + str(index) + ".jpg", cv.IMREAD_COLOR
+            )
         else:
             print("Unknown dataset!")
             return None
@@ -109,16 +133,24 @@ class SequenceManager:
 
             for j in range(self.bounding_box[0][index].shape[0]):
                 if self.bounding_box[0][index][j][4] > threshold:
-                    for x in range(int(self.bounding_box[0][index][j][0]),
-                                   int(self.bounding_box[0][index][j][2])):
-                        for y in range(int(self.bounding_box[0][index][j][1]),
-                                       int(self.bounding_box[0][index][j][3])):
+                    for x in range(
+                        int(self.bounding_box[0][index][j][0]),
+                        int(self.bounding_box[0][index][j][2]),
+                    ):
+                        for y in range(
+                            int(self.bounding_box[0][index][j][1]),
+                            int(self.bounding_box[0][index][j][3]),
+                        ):
                             tmp_mask[y, x] = 0
 
             return tmp_mask
 
     def get_ptz(self, index):
-        return self.ground_truth_pan[index], self.ground_truth_tilt[index], self.ground_truth_f[index]
+        return (
+            self.ground_truth_pan[index],
+            self.ground_truth_tilt[index],
+            self.ground_truth_f[index],
+        )
 
     def get_camera(self, index):
         camera = copy.deepcopy(self.camera)
@@ -127,9 +159,11 @@ class SequenceManager:
 
 
 def ut_camera_center_and_base_rotation():
-    input = SequenceManager("/Users/jimmy/Desktop/ptz_slam_dataset/basketball/basketball_anno.mat",
-                            "/Users/jimmy/Desktop/ptz_slam_dataset/basketball/images",
-                            "/Users/jimmy/PycharmProjects/ptz_slam/Camera-Calibration/basketball/objects_basketball.mat")
+    input = SequenceManager(
+        "/Users/jimmy/Desktop/ptz_slam_dataset/basketball/basketball_anno.mat",
+        "/Users/jimmy/Desktop/ptz_slam_dataset/basketball/images",
+        "/Users/jimmy/PycharmProjects/ptz_slam/Camera-Calibration/basketball/objects_basketball.mat",
+    )
 
     print(input.get_camera_center())
     print(input.get_base_rotation())
@@ -143,8 +177,12 @@ def vis_keypoints():
     # obj = SequenceManager("./basketball/basketball/basketball_anno.mat", "./basketball/basketball/images",
     #                       "./objects_basketball.mat")
 
-    obj = SequenceManager("./basketball/basketball/basketball_anno.mat", "./seq3_blur/", "./soccer3_ground_truth.mat",
-                          "./objects_soccer.mat")
+    obj = SequenceManager(
+        "./basketball/basketball/basketball_anno.mat",
+        "./seq3_blur/",
+        "./soccer3_ground_truth.mat",
+        "./objects_soccer.mat",
+    )
 
     img = obj.get_image(192, 1)
     img2 = np.copy(img)
@@ -161,34 +199,70 @@ def vis_keypoints():
     for i in range(len(kp)):
         x = int(kp[i][0])
         y = int(kp[i][1])
-        cv.line(img, (x - chacha_length, y - chacha_length), (x + chacha_length, y + chacha_length),
-                color=(0, 255, 255),
-                thickness=2)
-        cv.line(img, (x - chacha_length, y + chacha_length), (x + chacha_length, y - chacha_length),
-                color=(0, 255, 255),
-                thickness=2)
+        cv.line(
+            img,
+            (x - chacha_length, y - chacha_length),
+            (x + chacha_length, y + chacha_length),
+            color=(0, 255, 255),
+            thickness=2,
+        )
+        cv.line(
+            img,
+            (x - chacha_length, y + chacha_length),
+            (x + chacha_length, y - chacha_length),
+            color=(0, 255, 255),
+            thickness=2,
+        )
 
     for i in range(len(after_kp)):
         x = int(after_kp[i][0])
         y = int(after_kp[i][1])
-        cv.line(img2, (x - chacha_length, y - chacha_length), (x + chacha_length, y + chacha_length),
-                color=(0, 255, 255),
-                thickness=2)
-        cv.line(img2, (x - chacha_length, y + chacha_length), (x + chacha_length, y - chacha_length),
-                color=(0, 255, 255),
-                thickness=2)
+        cv.line(
+            img2,
+            (x - chacha_length, y - chacha_length),
+            (x + chacha_length, y + chacha_length),
+            color=(0, 255, 255),
+            thickness=2,
+        )
+        cv.line(
+            img2,
+            (x - chacha_length, y + chacha_length),
+            (x + chacha_length, y - chacha_length),
+            color=(0, 255, 255),
+            thickness=2,
+        )
 
     boxes = obj.bounding_box[0][192]
     for j in range(boxes.shape[0]):
         if boxes[j][4] > 0.6:
-            cv.line(img2, (boxes[j][0], boxes[j][1]),
-                    (boxes[j][2], boxes[j][1]), color=(255, 255, 255), thickness=5)
-            cv.line(img2, (boxes[j][0], boxes[j][1]),
-                    (boxes[j][0], boxes[j][3]), color=(255, 255, 255), thickness=5)
-            cv.line(img2, (boxes[j][0], boxes[j][3]),
-                    (boxes[j][2], boxes[j][3]), color=(255, 255, 255), thickness=5)
-            cv.line(img2, (boxes[j][2], boxes[j][1]),
-                    (boxes[j][2], boxes[j][3]), color=(255, 255, 255), thickness=5)
+            cv.line(
+                img2,
+                (boxes[j][0], boxes[j][1]),
+                (boxes[j][2], boxes[j][1]),
+                color=(255, 255, 255),
+                thickness=5,
+            )
+            cv.line(
+                img2,
+                (boxes[j][0], boxes[j][1]),
+                (boxes[j][0], boxes[j][3]),
+                color=(255, 255, 255),
+                thickness=5,
+            )
+            cv.line(
+                img2,
+                (boxes[j][0], boxes[j][3]),
+                (boxes[j][2], boxes[j][3]),
+                color=(255, 255, 255),
+                thickness=5,
+            )
+            cv.line(
+                img2,
+                (boxes[j][2], boxes[j][1]),
+                (boxes[j][2], boxes[j][3]),
+                color=(255, 255, 255),
+                thickness=5,
+            )
 
     cv.imshow("test2", img2)
     cv.imshow("test", img)
@@ -233,7 +307,9 @@ def generate_ground_truth():
     #
     # save_camera_pose(pan[0:330], tilt[0:330], f[0:330], ".", "soccer3_ground_truth.mat")
 
-    seq = sio.loadmat("../../../to_delete/venv/basketball/basketball/basketball_anno.mat")
+    seq = sio.loadmat(
+        "../../../to_delete/venv/basketball/basketball/basketball_anno.mat"
+    )
     annotation = seq["annotation"]
 
     pan = np.ndarray([3600])
@@ -243,7 +319,7 @@ def generate_ground_truth():
     # pre_pan, pre_tilt, pre_f = annotation[0][0]['ptz'].squeeze()
 
     for i in range(0, 3600):
-        pan[i], tilt[i], f[i] = annotation[0][i]['ptz'].squeeze()
+        pan[i], tilt[i], f[i] = annotation[0][i]["ptz"].squeeze()
         print(i)
 
     pan = sig.savgol_filter(pan, 181, 1)
@@ -254,26 +330,52 @@ def generate_ground_truth():
 
 
 def ut_ptz_camera():
-    obj = SequenceManager("./basketball/basketball/basketball_anno.mat", "./basketball/basketball/images",
-                          "./basketball_ground_truth.mat", "./objects_basketball.mat")
+    obj = SequenceManager(
+        "./basketball/basketball/basketball_anno.mat",
+        "./basketball/basketball/images",
+        "./basketball_ground_truth.mat",
+        "./objects_basketball.mat",
+    )
 
     print(obj.camera.project_3Dpoint([0, 0, 0]))
 
-    print(TransFunction.from_3dpoint_to_image(obj.camera.principal_point[0], obj.camera.principal_point[1],
-                                              obj.camera.focal_length, obj.camera.pan, obj.camera.tilt,
-                                              obj.camera.camera_center, obj.camera.base_rotation, [0, 0, 0]))
+    print(
+        TransFunction.from_3dpoint_to_image(
+            obj.camera.principal_point[0],
+            obj.camera.principal_point[1],
+            obj.camera.focal_length,
+            obj.camera.pan,
+            obj.camera.tilt,
+            obj.camera.camera_center,
+            obj.camera.base_rotation,
+            [0, 0, 0],
+        )
+    )
 
     print(obj.camera.project_ray([5, 1]))
 
-    print(TransFunction.from_ray_to_image(obj.camera.principal_point[0], obj.camera.principal_point[1],
-                                          obj.camera.focal_length, obj.camera.pan, obj.camera.tilt, 5, 1))
+    print(
+        TransFunction.from_ray_to_image(
+            obj.camera.principal_point[0],
+            obj.camera.principal_point[1],
+            obj.camera.focal_length,
+            obj.camera.pan,
+            obj.camera.tilt,
+            5,
+            1,
+        )
+    )
 
     print(obj.camera.back_project_to_3D_point(-1726.9998, 1295.25688))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # generate_ground_truth()
 
-    gt_p, gt_t, gt_f = load_camera_pose("../../dataset/soccer_dataset/seq3/seq3_ground_truth.mat")
-    p, t, z = load_camera_pose("C:/graduate_design/experiment_result/new/soccer/rf-2(2).mat", True)
+    gt_p, gt_t, gt_f = load_camera_pose(
+        "../../dataset/soccer_dataset/seq3/seq3_ground_truth.mat"
+    )
+    p, t, z = load_camera_pose(
+        "C:/graduate_design/experiment_result/new/soccer/rf-2(2).mat", True
+    )
     draw_camera_plot(gt_p, gt_t, gt_f, p, t, z)

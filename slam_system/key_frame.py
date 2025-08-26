@@ -4,11 +4,8 @@ Keyframe class.
 Created by Luke, 2018.9
 """
 
-import scipy.io as sio
-import numpy as np
-import cv2 as cv
-from image_process import detect_compute_sift_array, visualize_points
 from util import *
+
 
 class KeyFrame:
     """This is a class for keyframe in mapping."""
@@ -78,7 +75,7 @@ class KeyFrame:
         :param path: save path for key frame
         """
         keyframe_data = dict()
-        keyframe_data['im_name'] = str(self.img_index) + ".jpg"
+        keyframe_data["im_name"] = str(self.img_index) + ".jpg"
 
         # kp, des = detect_compute_sift_array(self.img, 300)
 
@@ -88,8 +85,8 @@ class KeyFrame:
         if type(self.feature_pts) == list:
             self.convert_keypoint_to_array()
 
-        keyframe_data['keypoint'] = self.feature_pts
-        keyframe_data['descriptor'] = self.feature_des
+        keyframe_data["keypoint"] = self.feature_pts
+        keyframe_data["descriptor"] = self.feature_des
 
         # convert the base rotation to (3, 1)
         save_br = np.ndarray([3, 1])
@@ -99,9 +96,20 @@ class KeyFrame:
             save_br = self.base_rotation
         save_br = save_br.ravel()
 
-        keyframe_data['camera'] = np.array([self.u, self.v, self.f, save_br[0], save_br[1], save_br[2],
-                                            self.center[0], self.center[1], self.center[2]]).reshape(-1, 1)
+        keyframe_data["camera"] = np.array(
+            [
+                self.u,
+                self.v,
+                self.f,
+                save_br[0],
+                save_br[1],
+                save_br[2],
+                self.center[0],
+                self.center[1],
+                self.center[2],
+            ]
+        ).reshape(-1, 1)
 
-        keyframe_data['ptz'] = np.array([self.pan, self.tilt, self.f]).reshape(-1, 1)
+        keyframe_data["ptz"] = np.array([self.pan, self.tilt, self.f]).reshape(-1, 1)
 
         sio.savemat(path, mdict=keyframe_data)

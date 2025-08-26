@@ -33,7 +33,9 @@ def get_wrap_matrix(camera, src_ptz, target_ptz):
     target_rotation = camera.compute_rotation_matrix()
 
     # p1to2 is the homography matrix from img
-    p1to2 = np.dot(target_k, np.dot(target_rotation, np.dot(lg.inv(src_rotation), lg.inv(src_k))))
+    p1to2 = np.dot(
+        target_k, np.dot(target_rotation, np.dot(lg.inv(src_rotation), lg.inv(src_k)))
+    )
 
     return p1to2
 
@@ -45,7 +47,12 @@ def get_wrap_matrix_with_k_and_rotation(src_k, target_k, src_rotation, target_ro
     target_rotation_matrix = np.zeros((3, 3))
     cv.Rodrigues(target_rotation, target_rotation_matrix)
 
-    p1to2 = np.dot(target_k, np.dot(target_rotation_matrix, np.dot(lg.inv(src_rotation_matrix), lg.inv(src_k))))
+    p1to2 = np.dot(
+        target_k,
+        np.dot(
+            target_rotation_matrix, np.dot(lg.inv(src_rotation_matrix), lg.inv(src_k))
+        ),
+    )
     return p1to2
 
 
@@ -65,7 +72,9 @@ def enlarge_image(img, vertical, horizontal):
     else:
         enlarged_image = np.zeros((height, width), np.uint8)
 
-    enlarged_image[vertical:vertical + img.shape[0], horizontal:horizontal + img.shape[1]] = img
+    enlarged_image[
+        vertical : vertical + img.shape[0], horizontal : horizontal + img.shape[1]
+    ] = img
 
     return enlarged_image
 
@@ -132,7 +141,7 @@ def blending_with_avg(image_list, mask_list):
         new_mask_list.append((img > 0).astype(np.uint8))
 
     sum_img = np.zeros(image_list[0].shape, np.uint16)
-    total_mask = np.zeros(mask_list[0].shape, np.float)
+    total_mask = np.zeros(mask_list[0].shape, np.float32)
 
     color = []
     ma = []
@@ -142,19 +151,14 @@ def blending_with_avg(image_list, mask_list):
     for ppp in mask_list:
         ma.append(ppp[659, 759])
 
-
     for i in range(len(image_list)):
         sum_img += image_list[i] * mask_list[i]
         total_mask += mask_list[i]
 
     total_mask[total_mask == 0] = 1
 
-    sss = sum_img[659, 759]
-    tttt = total_mask[659, 759]
 
     panorama = (sum_img / total_mask).astype(np.uint8)
-
-    fff = panorama[659, 759]
 
     return panorama
 
@@ -201,7 +205,10 @@ def generate_panoramic_image(standard_camera, img_list, ptz_list):
         matrix = np.dot(trans_matrix, matrix)
 
         # wrapped images shape, larger than origin images
-        dst_shape = (mask.shape[1] + horizontal_border * 2, mask.shape[0] + vertical_border * 2)
+        dst_shape = (
+            mask.shape[1] + horizontal_border * 2,
+            mask.shape[0] + vertical_border * 2,
+        )
 
         # wrap origin image and mask
         dst = cv.warpPerspective(img, matrix, dst_shape)
@@ -218,7 +225,6 @@ def generate_panoramic_image(standard_camera, img_list, ptz_list):
 
 
 def generate_panoramic_image_with_k_rotation(img_list, camera_list):
-
     assert len(img_list) == len(camera_list)
 
     for image in img_list:
@@ -243,11 +249,15 @@ def generate_panoramic_image_with_k_rotation(img_list, camera_list):
 
     median_f = np.median(f_array)
 
-    standard_k = np.array([[median_f, 0, u],
-                           [0, median_f, v],
-                           [0, 0, 1]])
+    standard_k = np.array([[median_f, 0, u], [0, median_f, v], [0, 0, 1]])
 
-    standard_rotation = np.array([np.median(rotation_array1), np.median(rotation_array2), np.median(rotation_array3)])
+    standard_rotation = np.array(
+        [
+            np.median(rotation_array1),
+            np.median(rotation_array2),
+            np.median(rotation_array3),
+        ]
+    )
 
     # mask = 0 if it's in the border, else mask = 1
     mask = np.ones(img_list[0].shape, np.uint8)
@@ -263,13 +273,13 @@ def generate_panoramic_image_with_k_rotation(img_list, camera_list):
         u, v = camera_list[i][0], camera_list[i][1]
         f = camera_list[i][2]
 
-        src_k = np.array([[f, 0, u],
-                          [0, f, v],
-                          [0, 0, 1]])
+        src_k = np.array([[f, 0, u], [0, f, v], [0, 0, 1]])
 
         src_rotation = camera_list[i][3:6]
 
-        matrix = get_wrap_matrix_with_k_and_rotation(src_k, standard_k, src_rotation, standard_rotation)
+        matrix = get_wrap_matrix_with_k_and_rotation(
+            src_k, standard_k, src_rotation, standard_rotation
+        )
 
         # transformation to right-down, to avoid being wrapped to axes' negative side
         trans_matrix = np.identity(3)
@@ -278,7 +288,10 @@ def generate_panoramic_image_with_k_rotation(img_list, camera_list):
         matrix = np.dot(trans_matrix, matrix)
 
         # wrapped images shape, larger than origin images
-        dst_shape = (mask.shape[1] + horizontal_border * 2, mask.shape[0] + vertical_border * 2)
+        dst_shape = (
+            mask.shape[1] + horizontal_border * 2,
+            mask.shape[0] + vertical_border * 2,
+        )
 
         # wrap origin image and mask
         dst = cv.warpPerspective(img, matrix, dst_shape)
@@ -303,18 +316,24 @@ def ut_basketball_map():
     img_sequence = [0, 237, 664, 683, 700, 722, 740, 778, 2461]
 
     # shared parameters for ptz camera
-    camera = PTZCamera(annotation[0][700]['camera'][0][0:2], meta[0][0]["cc"][0], meta[0][0]["base_rotation"][0])
+    camera = PTZCamera(
+        annotation[0][700]["camera"][0][0:2],
+        meta[0][0]["cc"][0],
+        meta[0][0]["base_rotation"][0],
+    )
 
     # get image list
     images = []
     for i in img_sequence:
-        img = cv.imread("../../dataset/basketball/images/" + annotation[0][i]['image_name'][0], 1)
+        img = cv.imread(
+            "../../dataset/basketball/images/" + annotation[0][i]["image_name"][0], 1
+        )
         images.append(img)
 
     # get camera pose list (corresponding to image list)
     ptz_list = []
     for i in img_sequence:
-        ptz_list.append(annotation[0][i]['ptz'][0])
+        ptz_list.append(annotation[0][i]["ptz"][0])
 
     panorama = generate_panoramic_image(camera, images, ptz_list)
     cv.imshow("test", panorama)
@@ -322,8 +341,11 @@ def ut_basketball_map():
     cv.imwrite("../../map/ttt.jpg", panorama)
     cv.waitKey(0)
 
+
 def ut_soccer_map():
-    seq = sio.loadmat("C:/graduate_design/dataset/soccer_dataset/seq3/seq3_ground_truth.mat")
+    seq = sio.loadmat(
+        "C:/graduate_design/dataset/soccer_dataset/seq3/seq3_ground_truth.mat"
+    )
 
     annotation = seq["annotation"]
     meta = seq["meta"]
@@ -332,27 +354,29 @@ def ut_soccer_map():
     img_sequence = [0, 91, 144, 234]
 
     # shared parameters for ptz camera
-    camera = PTZCamera(annotation[0][0]['camera'][0][0:2], meta[0][0]["cc"][0], meta[0][0]["base_rotation"][0])
+    camera = PTZCamera(
+        annotation[0][0]["camera"][0][0:2],
+        meta[0][0]["cc"][0],
+        meta[0][0]["base_rotation"][0],
+    )
 
     # get image list
     images = []
     for i in img_sequence:
-        img = cv.imread("../../dataset/soccer_dataset/seq3/seq3_330/" + annotation[0][i]['image_name'][0], 1)
+        img = cv.imread(
+            "../../dataset/soccer_dataset/seq3/seq3_330/"
+            + annotation[0][i]["image_name"][0],
+            1,
+        )
         images.append(img)
 
     # get camera pose list (corresponding to image list)
-    ptz_list = [ [53.3648337246351, -5.86620247686982, 3733.765356],
-                 [56.9062913348596,
-                 -5.988704410148857,
-                 4126.398474589448],
-                 [49.66426462006893,
-                    -6.650261607092016,
-                    4088.31720671323],
-                 [66.11304986437663,
-                    -9.008581330137321,
-                    2565.0716115739483
-                    ]]
-
+    ptz_list = [
+        [53.3648337246351, -5.86620247686982, 3733.765356],
+        [56.9062913348596, -5.988704410148857, 4126.398474589448],
+        [49.66426462006893, -6.650261607092016, 4088.31720671323],
+        [66.11304986437663, -9.008581330137321, 2565.0716115739483],
+    ]
 
     # for i in img_sequence:
     #     ptz_list.append(annotation[0][i]['ptz'][0:3].squeeze())
@@ -364,13 +388,13 @@ def ut_soccer_map():
     cv.waitKey(0)
 
 
-
 def ut_basketball_estimated_map():
-
-    sequence = SequenceManager("../../dataset/basketball/ground_truth.mat",
-                               "../../dataset/basketball/images",
-                               "../../dataset/basketball/ground_truth.mat",
-                               "../../dataset/basketball/bounding_box.mat")
+    sequence = SequenceManager(
+        "../../dataset/basketball/ground_truth.mat",
+        "../../dataset/basketball/images",
+        "../../dataset/basketball/ground_truth.mat",
+        "../../dataset/basketball/bounding_box.mat",
+    )
 
     keyframe_list = []
     for i in range(9):
@@ -381,13 +405,13 @@ def ut_basketball_estimated_map():
 
     images = []
     for keyframe in keyframe_list:
-        img_index = keyframe['img_index'].squeeze()
+        img_index = keyframe["img_index"].squeeze()
         img = sequence.get_image(img_index, 0)
         images.append(img)
 
     ptz_list = []
     for keyframe in keyframe_list:
-        ptz = keyframe['camera_pose'].squeeze()
+        ptz = keyframe["camera_pose"].squeeze()
         ptz_list.append(ptz)
 
     panorama = generate_panoramic_image(camera, images, ptz_list)
@@ -404,13 +428,19 @@ def ut_hockey_map():
     cameras = annotation["opt_cameras"]
     shared_parameters = annotation["shared_parameters"]
 
-    camera = PTZCamera(cameras[0, 0:2], shared_parameters[0:3, 0],
-                       shared_parameters[3:6, 0], shared_parameters[6:12, 0])
+    camera = PTZCamera(
+        cameras[0, 0:2],
+        shared_parameters[0:3, 0],
+        shared_parameters[3:6, 0],
+        shared_parameters[6:12, 0],
+    )
 
     images = []
     ptz_list = []
     for i in range(0, 26, 3):
-        img = cv.imread("../../ice_hockey_1/olympic_2010_reference_frame/image/" + filename[i])
+        img = cv.imread(
+            "../../ice_hockey_1/olympic_2010_reference_frame/image/" + filename[i]
+        )
         images.append(img)
         ptz_list.append(ptzs[i])
 
@@ -422,8 +452,9 @@ def ut_hockey_map():
 
 
 def ut_hockey_before_optimize_map():
-    files = glob.glob("../../ice_hockey_1/olympic_2010_reference_frame/annotation/*.txt")
-    N = len(files)
+    files = glob.glob(
+        "../../ice_hockey_1/olympic_2010_reference_frame/annotation/*.txt"
+    )
     # initial camera data
     init_cameras = []
     images = []
@@ -431,17 +462,18 @@ def ut_hockey_before_optimize_map():
     annotation = sio.loadmat("../../ice_hockey_1/olympic_2010_reference_frame.mat")
     filename = annotation["images"]
 
-
     num_list = [0, 1]
 
     for i in num_list:
         file_name = files[i]
 
-        data = np.loadtxt(file_name, delimiter='\t', skiprows=2)
+        data = np.loadtxt(file_name, delimiter="\t", skiprows=2)
         # init_cameras[i, :] = data
         init_cameras.append(data)
 
-        img = cv.imread("../../ice_hockey_1/olympic_2010_reference_frame/image/" + filename[i])
+        img = cv.imread(
+            "../../ice_hockey_1/olympic_2010_reference_frame/image/" + filename[i]
+        )
         images.append(img)
 
     panorama = generate_panoramic_image_with_k_rotation(images, init_cameras)
@@ -449,6 +481,7 @@ def ut_hockey_before_optimize_map():
 
     cv.imwrite("../../map/before_optimize_hockey.jpg", panorama)
     cv.waitKey(0)
+
 
 if __name__ == "__main__":
     # ut_basketball_map()

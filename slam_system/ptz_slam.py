@@ -4,28 +4,17 @@ Main part of our system. Ray landmarks based PTZ SLAM.
 Created by Luke, 2018.9
 """
 
-import scipy.io as sio
-import cv2 as cv
 import copy
 
-from sequence_manager import SequenceManager
 from scene_map import Map, RandomForestMap
-from nearest_neighbor import NNBasedMap
 from key_frame import KeyFrame
 from relocalization import relocalization_camera
-from ptz_camera import PTZCamera
 from image_process import *
 from util import *
 
 
 class PtzSlam:
     def __init__(self):
-        """
-        :param annotation_path: path for annotation file
-        :param bounding_box_path: path for player bounding box mat file
-        :param image_path: path for image folder
-        """
-
         # global rays and covariance matrix
         self.rays = np.ndarray([0, 2])
         self.state_cov = np.zeros([3, 3])
@@ -42,7 +31,7 @@ class PtzSlam:
         self.current_camera = None
 
         # map
-        self.keyframe_map = Map('sift')
+        self.keyframe_map = Map("sift")
 
         self.rf_map = RandomForestMap()
 
@@ -112,10 +101,18 @@ class PtzSlam:
             x_delta_f2, y_delta_f2 = camera.project_ray(rays[i])
 
             camera.set_ptz([pan, tilt, focal_length])
-            x_delta_theta1, y_delta_theta1 = camera.project_ray([rays[i, 0] - delta_angle, rays[i, 1]])
-            x_delta_theta2, y_delta_theta2 = camera.project_ray([rays[i, 0] + delta_angle, rays[i, 1]])
-            x_delta_phi1, y_delta_phi1 = camera.project_ray([rays[i, 0], rays[i, 1] - delta_angle])
-            x_delta_phi2, y_delta_phi2 = camera.project_ray([rays[i, 0], rays[i, 1] + delta_angle])
+            x_delta_theta1, y_delta_theta1 = camera.project_ray(
+                [rays[i, 0] - delta_angle, rays[i, 1]]
+            )
+            x_delta_theta2, y_delta_theta2 = camera.project_ray(
+                [rays[i, 0] + delta_angle, rays[i, 1]]
+            )
+            x_delta_phi1, y_delta_phi1 = camera.project_ray(
+                [rays[i, 0], rays[i, 1] - delta_angle]
+            )
+            x_delta_phi2, y_delta_phi2 = camera.project_ray(
+                [rays[i, 0], rays[i, 1] + delta_angle]
+            )
 
             jacobi_h[2 * i][0] = (x_delta_pan2 - x_delta_pan1) / (2 * delta_angle)
             jacobi_h[2 * i][1] = (x_delta_tilt2 - x_delta_tilt1) / (2 * delta_angle)
@@ -129,11 +126,19 @@ class PtzSlam:
                 """only j == i, the element of H is not zero.
                 the partial derivative of one 2D point to a different landmark is always zero."""
                 if j == i:
-                    jacobi_h[2 * i][3 + 2 * j] = (x_delta_theta2 - x_delta_theta1) / (2 * delta_angle)
-                    jacobi_h[2 * i][3 + 2 * j + 1] = (x_delta_phi2 - x_delta_phi1) / (2 * delta_angle)
+                    jacobi_h[2 * i][3 + 2 * j] = (x_delta_theta2 - x_delta_theta1) / (
+                        2 * delta_angle
+                    )
+                    jacobi_h[2 * i][3 + 2 * j + 1] = (x_delta_phi2 - x_delta_phi1) / (
+                        2 * delta_angle
+                    )
 
-                    jacobi_h[2 * i + 1][3 + 2 * j] = (y_delta_theta2 - y_delta_theta1) / (2 * delta_angle)
-                    jacobi_h[2 * i + 1][3 + 2 * j + 1] = (y_delta_phi2 - y_delta_phi1) / (2 * delta_angle)
+                    jacobi_h[2 * i + 1][3 + 2 * j] = (
+                        y_delta_theta2 - y_delta_theta1
+                    ) / (2 * delta_angle)
+                    jacobi_h[2 * i + 1][3 + 2 * j + 1] = (
+                        y_delta_phi2 - y_delta_phi1
+                    ) / (2 * delta_angle)
 
         return jacobi_h
 
@@ -189,7 +194,7 @@ class PtzSlam:
 
         # initialize rays
         self.rays = np.ndarray([0, 2])
-        self.rays = np.row_stack([self.rays, init_rays])
+        self.rays = np.vstack([self.rays, init_rays])
 
         self.des = first_des
 
@@ -221,11 +226,14 @@ class PtzSlam:
         # step 1: get 2d points and indexes in all landmarks with predicted camera pose
         predicted_camera = self.current_camera
         predict_keypoints, predict_keypoint_index = predicted_camera.project_rays(
-            self.rays, height, width)
+            self.rays, height, width
+        )
 
         # step 2: an intersection of observed keypoints and predicted keypoints
         # compute y_k: residual
-        overlap1, overlap2 = get_overlap_index(observed_keypoint_index, predict_keypoint_index)
+        overlap1, overlap2 = get_overlap_index(
+            observed_keypoint_index, predict_keypoint_index
+        )
         y_k = observed_keypoints[overlap1] - predict_keypoints[overlap2]
         y_k = y_k.flatten()  # to one dimension
 
@@ -239,19 +247,26 @@ class PtzSlam:
         pose_index = np.array([0, 1, 2])
         ray_index = np.zeros(num_ray * 2)
         for j in range(num_ray):
-            ray_index[2 * j + 0], ray_index[2 * j + 1] = 2 * matched_ray_index[j] + 3 + 0, 2 * matched_ray_index[
-                j] + 3 + 1
+            ray_index[2 * j + 0], ray_index[2 * j + 1] = (
+                2 * matched_ray_index[j] + 3 + 0,
+                2 * matched_ray_index[j] + 3 + 1,
+            )
         pose_ray_index = np.concatenate((pose_index, ray_index), axis=0)
         pose_ray_index = pose_ray_index.astype(np.int32)
         predicted_cov = self.state_cov[pose_ray_index][:, pose_ray_index]
-        assert predicted_cov.shape[0] == pose_ray_index.shape[0] and predicted_cov.shape[1] == pose_ray_index.shape[0]
+        assert (
+            predicted_cov.shape[0] == pose_ray_index.shape[0]
+            and predicted_cov.shape[1] == pose_ray_index.shape[0]
+        )
 
         # compute jacobi
         updated_ray = self.rays[matched_ray_index.astype(int)]
-        jacobi = self.compute_h_jacobian(pan=predicted_camera.pan,
-                                         tilt=predicted_camera.tilt,
-                                         focal_length=predicted_camera.focal_length,
-                                         rays=updated_ray)
+        jacobi = self.compute_h_jacobian(
+            pan=predicted_camera.pan,
+            tilt=predicted_camera.tilt,
+            focal_length=predicted_camera.focal_length,
+            rays=updated_ray,
+        )
         # get Kalman gain
         r_k = self.observe_var * np.eye(2 * num_ray)  # todo 2 is a constant value
         s_k = np.dot(np.dot(jacobi, predicted_cov), jacobi.T) + r_k
@@ -270,11 +285,13 @@ class PtzSlam:
         self.current_camera = cur_camera  # redundant code as it is a reference
 
         # update speed model
-        self.velocity = k_mul_y[0: 3]
+        self.velocity = k_mul_y[0:3]
 
         # update global rays: overwrite updated ray to ray_global
         for j in range(num_ray):
-            self.rays[int(matched_ray_index[j])][0:2] += k_mul_y[2 * j + 3: 2 * j + 3 + 2]
+            self.rays[int(matched_ray_index[j])][0:2] += k_mul_y[
+                2 * j + 3 : 2 * j + 3 + 2
+            ]
 
         # update global p: overwrite updated p to the p_global
         update_p = np.dot(np.eye(3 + 2 * num_ray) - np.dot(k_k, jacobi), predicted_cov)
@@ -292,25 +309,19 @@ class PtzSlam:
         """
         remove_rays
         delete ransac outliers from global ray
-        The ray is initialized by keypoint detection in the first frame.
-        In the next frame, some of the keypoints are corrected matched as inliers,
-        others are outliers. The outlier is associated with a ray, that ray will be removed
-        Note the ray is different from the ray in the Map().
-
-        :param index: index in rays to be removed
         """
+        # Convert incoming indices to an integer array
+        delete_index = np.array(index, dtype=int)
 
-        # delete ray_global
-        delete_index = np.array(index)
+        # Delete rows from rays and descriptors
         self.rays = np.delete(self.rays, delete_index, axis=0)
         self.des = np.delete(self.des, delete_index, axis=0)
 
-        # delete p_global
-        p_delete_index = np.ndarray([0])
-        for j in range(len(delete_index)):
-            p_delete_index = np.append(p_delete_index, np.array([2 * delete_index[j] + 3,
-                                                                 2 * delete_index[j] + 4]))
+        # Efficiently calculate indices for the covariance matrix without a loop
+        p_delete_base = 2 * delete_index
+        p_delete_index = np.vstack((p_delete_base + 3, p_delete_base + 4)).flatten('F')
 
+        # Delete corresponding rows and columns from the state covariance matrix
         self.state_cov = np.delete(self.state_cov, p_delete_index, axis=0)
         self.state_cov = np.delete(self.state_cov, p_delete_index, axis=1)
 
@@ -331,30 +342,16 @@ class PtzSlam:
 
         # project global_ray to image. Get existing keypoints
         keypoints, keypoints_index = self.current_camera.project_rays(
-            self.rays, height, width)
+            self.rays, height, width
+        )
 
-        # new_keypoints = detect_sift(img, self.keypoint_num)
         new_keypoints, new_des = detect_compute_sift_array(img, self.keypoint_num)
-        # new_keypoints = detect_orb(img, 300)
-        # new_keypoints = add_gauss(new_keypoints, 50, 1280, 720)
 
-        # # for baseline2
-        # delete_index = []
-        # for i in range(new_keypoints.shape[0]):
-        #     world_x, world_y, _ = self.current_camera.back_project_to_3d_point(new_keypoints[i, 0], new_keypoints[i, 1])
-        #     # if world_x < 0 or world_x > 118 or world_y < 0 or world_y > 70:
-        #     if world_x < 0 or world_x > 25 or world_y < 0 or world_y > 18:
-        #         delete_index.append(i)
-        # new_keypoints = np.delete(new_keypoints, delete_index, axis=0)
-        # new_des = np.delete(new_des, delete_index, axis=0)
-
-        # remove keypoints in player bounding boxes
         if bounding_box is not None:
             bounding_box_mask_index = keypoints_masking(new_keypoints, bounding_box)
             new_keypoints = new_keypoints[bounding_box_mask_index]
             new_des = new_des[bounding_box_mask_index]
 
-        # remove keypoints near existing keypoints
         mask = np.ones(img.shape[0:2], np.uint8)
 
         for j in range(len(keypoints)):
@@ -375,12 +372,20 @@ class PtzSlam:
 
             # add new ray to ray_global, and add new rows and cols to p_global
             for j in range(len(new_rays)):
-                self.rays = np.row_stack([self.rays, new_rays[j]])
-                self.des = np.row_stack([self.des, new_des[j]])
-                self.state_cov = np.row_stack([self.state_cov, np.zeros([2, self.state_cov.shape[1]])])
-                self.state_cov = np.column_stack([self.state_cov, np.zeros([self.state_cov.shape[0], 2])])
-                self.state_cov[self.state_cov.shape[0] - 2, self.state_cov.shape[1] - 2] = self.angle_var
-                self.state_cov[self.state_cov.shape[0] - 1, self.state_cov.shape[1] - 1] = self.angle_var
+                self.rays = np.vstack([self.rays, new_rays[j]])
+                self.des = np.vstack([self.des, new_des[j]])
+                self.state_cov = np.vstack(
+                    [self.state_cov, np.zeros([2, self.state_cov.shape[1]])]
+                )
+                self.state_cov = np.column_stack(
+                    [self.state_cov, np.zeros([self.state_cov.shape[0], 2])]
+                )
+                self.state_cov[
+                    self.state_cov.shape[0] - 2, self.state_cov.shape[1] - 2
+                ] = self.angle_var
+                self.state_cov[
+                    self.state_cov.shape[0] - 1, self.state_cov.shape[1] - 1
+                ] = self.angle_var
                 keypoints_index = np.append(keypoints_index, len(self.rays) - 1)
 
             keypoints = np.concatenate([keypoints, new_keypoints], axis=0)
@@ -388,14 +393,12 @@ class PtzSlam:
         return keypoints, keypoints_index
 
     def tracking(self, next_img, bad_tracking_percentage, bounding_box=None):
-        """
-        This is function for tracking using sparse optical flow matching.
-        :param next_img: image for next tracking frame
-        :param bounding_box: bounding box matrix (optional)
-        """
-
         inlier_keypoints, inlier_index, outlier_index = matching_and_ransac(
-            self.previous_img, next_img, self.previous_keypoints, self.previous_keypoints_index)
+            self.previous_img,
+            next_img,
+            self.previous_keypoints,
+            self.previous_keypoints_index,
+        )
 
         # inlier_keypoints = add_gauss(inlier_keypoints, 50, 1280, 720)
 
@@ -423,7 +426,7 @@ class PtzSlam:
 
         # update p_global
         q_k = 5 * np.diag([self.angle_var, self.angle_var, self.f_var])
-        self.state_cov[0:3, 0:3] = self.state_cov[0:3, 0:3] + q_k
+        self.state_cov[0:3, 0:3] += q_k
 
         """
         ===============================
@@ -449,12 +452,14 @@ class PtzSlam:
         """
 
         self.previous_img = next_img
-        self.previous_keypoints, self.previous_keypoints_index = self.add_rays(next_img, bounding_box)
+        self.previous_keypoints, self.previous_keypoints_index = self.add_rays(
+            next_img, bounding_box
+        )
 
         print("tracking", tracking_percentage)
 
         # if tracking_percentage > bad_tracking_percentage:
-            # basketball set to (10, 25), soccer maybe (10, 15)
+        # basketball set to (10, 25), soccer maybe (10, 15)
         if self.keyframe_map.good_new_keyframe(self.current_camera.get_ptz(), 10, 15):
             self.new_keyframe = True
 
@@ -494,7 +499,9 @@ class PtzSlam:
         else:
             if len(self.keyframe_map.keyframe_list) > 1:
                 lost_pose = camera.pan, camera.tilt, camera.focal_length
-                relocalize_pose = relocalization_camera(self.keyframe_map, img, lost_pose)
+                relocalize_pose = relocalization_camera(
+                    self.keyframe_map, img, lost_pose
+                )
                 camera.set_ptz(relocalize_pose)
             else:
                 print("Warning: Not enough keyframes for relocalization.")
@@ -525,7 +532,9 @@ class PtzSlam:
         if enable_rf:
             # new_keyframe.feature_pts, new_keyframe.feature_des = detect_compute_sift_array(img, 1500)
             new_keyframe.feature_pts = self.previous_keypoints
-            new_keyframe.feature_des = self.des[self.previous_keypoints_index.astype(np.int)]
+            new_keyframe.feature_des = self.des[
+                self.previous_keypoints_index.astype(np.int32)
+            ]
 
             self.rf_map.add_keyframe(new_keyframe)
             self.new_keyframe = False
@@ -534,5 +543,7 @@ class PtzSlam:
             if frame_index == 0:
                 self.keyframe_map.add_first_keyframe(new_keyframe, verbose=True)
             else:
-                self.keyframe_map.add_keyframe_with_ba(new_keyframe, "./bundle_result/", verbose=True)
+                self.keyframe_map.add_keyframe_with_ba(
+                    new_keyframe, "./bundle_result/", verbose=True
+                )
                 self.new_keyframe = False

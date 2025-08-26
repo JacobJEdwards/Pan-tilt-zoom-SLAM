@@ -4,15 +4,8 @@ homography based EKF tracking
 Created by Luke, 2018.9
 """
 
-import scipy.io as sio
-import cv2 as cv
-import copy
 
 from sequence_manager import SequenceManager
-from scene_map import Map, RandomForestMap
-from key_frame import KeyFrame
-from relocalization import relocalization_camera
-from ptz_camera import PTZCamera
 from image_process import *
 from util import *
 from visualize import *
@@ -48,12 +41,12 @@ def global_to_image_array(pts, homography, height=0, width=0):
         for i in range(len(pts)):
             tmp = global_to_image(pts[i], homography)
             if 0 < tmp[0] < width and 0 < tmp[1] < height:
-                image_points = np.row_stack([image_points, np.asarray(tmp)])
+                image_points = np.vstack([image_points, np.asarray(tmp)])
                 index = np.concatenate([index, [i]], axis=0)
     else:
         for i in range(len(pts)):
             tmp = global_to_image(pts[i], homography)
-            image_points = np.row_stack([image_points, np.asarray(tmp)])
+            image_points = np.vstack([image_points, np.asarray(tmp)])
             index = np.array([j for j in range(len(pts))])
 
     return image_points, index
@@ -75,7 +68,6 @@ def image_to_global_array(pts, homography):
 
 class HomographyEKF:
     def __init__(self):
-
         # global rays and covariance matrix
         self.global_keypoints = np.ndarray([0, 2])
         self.state_cov = np.zeros([8, 8])
@@ -125,13 +117,16 @@ class HomographyEKF:
 
         jacobi_h = np.zeros([2 * keypoint_num, 8 + 2 * keypoint_num])
 
-        homography = np.array([[params[0], params[1], params[2]],
-                               [params[3], params[4], params[5]],
-                               [params[6], params[7], 1]])
+        homography = np.array(
+            [
+                [params[0], params[1], params[2]],
+                [params[3], params[4], params[5]],
+                [params[6], params[7], 1],
+            ]
+        )
 
         """use approximate method to compute partial derivative."""
         for i in range(keypoint_num):
-
             for j in range(8):
                 row = j // 3
                 col = j % 3
@@ -145,20 +140,36 @@ class HomographyEKF:
                 jacobi_h[2 * i][j] = (x_delta2 - x_delta1) / (2 * delta_params)
                 jacobi_h[2 * i + 1][j] = (y_delta2 - y_delta1) / (2 * delta_params)
 
-            x_delta_x1, y_delta_x1 = global_to_image([keypoints[i, 0] - delta_pixel, keypoints[i, 1]], homography)
-            x_delta_x2, y_delta_x2 = global_to_image([keypoints[i, 0] + delta_pixel, keypoints[i, 1]], homography)
-            x_delta_y1, y_delta_y1 = global_to_image([keypoints[i, 0], keypoints[i, 1] - delta_pixel], homography)
-            x_delta_y2, y_delta_y2 = global_to_image([keypoints[i, 0], keypoints[i, 1] + delta_pixel], homography)
+            x_delta_x1, y_delta_x1 = global_to_image(
+                [keypoints[i, 0] - delta_pixel, keypoints[i, 1]], homography
+            )
+            x_delta_x2, y_delta_x2 = global_to_image(
+                [keypoints[i, 0] + delta_pixel, keypoints[i, 1]], homography
+            )
+            x_delta_y1, y_delta_y1 = global_to_image(
+                [keypoints[i, 0], keypoints[i, 1] - delta_pixel], homography
+            )
+            x_delta_y2, y_delta_y2 = global_to_image(
+                [keypoints[i, 0], keypoints[i, 1] + delta_pixel], homography
+            )
 
             for j in range(keypoint_num):
                 """only j == i, the element of H is not zero.
                 the partial derivative of one 2D point to a different landmark is always zero."""
                 if j == i:
-                    jacobi_h[2 * i][8 + 2 * j] = (x_delta_x2 - x_delta_x1) / (2 * delta_pixel)
-                    jacobi_h[2 * i][8 + 2 * j + 1] = (x_delta_y2 - x_delta_y1) / (2 * delta_pixel)
+                    jacobi_h[2 * i][8 + 2 * j] = (x_delta_x2 - x_delta_x1) / (
+                        2 * delta_pixel
+                    )
+                    jacobi_h[2 * i][8 + 2 * j + 1] = (x_delta_y2 - x_delta_y1) / (
+                        2 * delta_pixel
+                    )
 
-                    jacobi_h[2 * i + 1][8 + 2 * j] = (y_delta_x2 - y_delta_x1) / (2 * delta_pixel)
-                    jacobi_h[2 * i + 1][8 + 2 * j + 1] = (y_delta_y2 - y_delta_y1) / (2 * delta_pixel)
+                    jacobi_h[2 * i + 1][8 + 2 * j] = (y_delta_x2 - y_delta_x1) / (
+                        2 * delta_pixel
+                    )
+                    jacobi_h[2 * i + 1][8 + 2 * j + 1] = (y_delta_y2 - y_delta_y1) / (
+                        2 * delta_pixel
+                    )
 
         return jacobi_h
 
@@ -185,7 +196,7 @@ class HomographyEKF:
 
         # initialize global keypoints
         self.global_keypoints = np.ndarray([0, 2])
-        self.global_keypoints = np.row_stack([self.global_keypoints, first_img_kp])
+        self.global_keypoints = np.vstack([self.global_keypoints, first_img_kp])
 
         # step 3: initialize convariance matrix of states
         # some parameters are manually selected
@@ -195,7 +206,9 @@ class HomographyEKF:
         # the previous frame information
         self.previous_img = img
         self.previous_keypoints = first_img_kp
-        self.previous_keypoints_index = np.array([i for i in range(len(self.global_keypoints))])
+        self.previous_keypoints_index = np.array(
+            [i for i in range(len(self.global_keypoints))]
+        )
 
         # append None as there is no homography for the frame itself
         self_homography = np.eye(3)
@@ -216,11 +229,14 @@ class HomographyEKF:
         # step 1: get 2d points and indexes in all landmarks with predicted camera pose
         predict_homography = self.current_homography
         predict_keypoints, predict_keypoint_index = global_to_image_array(
-            self.global_keypoints, predict_homography, height, width)
+            self.global_keypoints, predict_homography, height, width
+        )
 
         # step 2: an intersection of observed keypoints and predicted keypoints
         # compute y_k: residual
-        overlap1, overlap2 = get_overlap_index(observed_keypoint_index, predict_keypoint_index)
+        overlap1, overlap2 = get_overlap_index(
+            observed_keypoint_index, predict_keypoint_index
+        )
         y_k = observed_keypoints[overlap1] - predict_keypoints[overlap2]
         y_k = y_k.flatten()  # to one dimension
 
@@ -234,19 +250,31 @@ class HomographyEKF:
         homography_para_index = np.array([0, 1, 2, 3, 4, 5, 6, 7])
         keypoint_index = np.zeros(num_ray * 2)
         for j in range(num_ray):
-            keypoint_index[2 * j + 0], keypoint_index[2 * j + 1] = \
-                2 * matched_ray_index[j] + 8 + 0, 2 * matched_ray_index[j] + 8 + 1
+            keypoint_index[2 * j + 0], keypoint_index[2 * j + 1] = (
+                2 * matched_ray_index[j] + 8 + 0,
+                2 * matched_ray_index[j] + 8 + 1,
+            )
         pose_ray_index = np.concatenate((homography_para_index, keypoint_index), axis=0)
         pose_ray_index = pose_ray_index.astype(np.int32)
         predicted_cov = self.state_cov[pose_ray_index][:, pose_ray_index]
-        assert predicted_cov.shape[0] == pose_ray_index.shape[0] and predicted_cov.shape[1] == pose_ray_index.shape[0]
+        assert (
+            predicted_cov.shape[0] == pose_ray_index.shape[0]
+            and predicted_cov.shape[1] == pose_ray_index.shape[0]
+        )
 
         # compute jacobi
         updated_ray = self.global_keypoints[matched_ray_index.astype(int)]
 
-        params = [predict_homography[0, 0], predict_homography[0, 1], predict_homography[0, 2],
-                  predict_homography[1, 0], predict_homography[1, 1], predict_homography[1, 2],
-                  predict_homography[2, 0], predict_homography[2, 1], ]
+        params = [
+            predict_homography[0, 0],
+            predict_homography[0, 1],
+            predict_homography[0, 2],
+            predict_homography[1, 0],
+            predict_homography[1, 1],
+            predict_homography[1, 2],
+            predict_homography[2, 0],
+            predict_homography[2, 1],
+        ]
         jacobi = self.compute_h_jacobian(params, updated_ray)
 
         # get Kalman gain
@@ -265,11 +293,13 @@ class HomographyEKF:
             self.current_homography[i // 3, i % 3] += k_mul_y[i]
 
         # update speed model
-        self.velocity = k_mul_y[0: 8]
+        self.velocity = k_mul_y[0:8]
 
         # update global rays: overwrite updated ray to ray_global
         for j in range(num_ray):
-            self.global_keypoints[int(matched_ray_index[j])][0:2] += k_mul_y[2 * j + 8: 2 * j + 8 + 2]
+            self.global_keypoints[int(matched_ray_index[j])][0:2] += k_mul_y[
+                2 * j + 8 : 2 * j + 8 + 2
+            ]
 
         # update global p: overwrite updated p to the p_global
         update_p = np.dot(np.eye(8 + 2 * num_ray) - np.dot(k_k, jacobi), predicted_cov)
@@ -302,8 +332,10 @@ class HomographyEKF:
         # delete p_global
         p_delete_index = np.ndarray([0])
         for j in range(len(delete_index)):
-            p_delete_index = np.append(p_delete_index, np.array([8 + 2 * delete_index[j],
-                                                                 8 + 2 * delete_index[j] + 1]))
+            p_delete_index = np.append(
+                p_delete_index,
+                np.array([8 + 2 * delete_index[j], 8 + 2 * delete_index[j] + 1]),
+            )
 
         self.state_cov = np.delete(self.state_cov, p_delete_index, axis=0)
         self.state_cov = np.delete(self.state_cov, p_delete_index, axis=1)
@@ -324,8 +356,9 @@ class HomographyEKF:
         height, width = img.shape[0:2]
 
         # project global_ray to image. Get existing keypoints
-        keypoints, keypoints_index = global_to_image_array(self.global_keypoints, self.current_homography,
-                                                           height, width)
+        keypoints, keypoints_index = global_to_image_array(
+            self.global_keypoints, self.current_homography, height, width
+        )
 
         new_keypoints = detect_sift(img, self.keypoint_num)
         # new_keypoints = detect_orb(img, 300)
@@ -358,12 +391,24 @@ class HomographyEKF:
 
             # add new ray to ray_global, and add new rows and cols to p_global
             for j in range(len(new_rays)):
-                self.global_keypoints = np.row_stack([self.global_keypoints, new_rays[j]])
-                self.state_cov = np.row_stack([self.state_cov, np.zeros([2, self.state_cov.shape[1]])])
-                self.state_cov = np.column_stack([self.state_cov, np.zeros([self.state_cov.shape[0], 2])])
-                self.state_cov[self.state_cov.shape[0] - 2, self.state_cov.shape[1] - 2] = self.keypoints_var
-                self.state_cov[self.state_cov.shape[0] - 1, self.state_cov.shape[1] - 1] = self.keypoints_var
-                keypoints_index = np.append(keypoints_index, len(self.global_keypoints) - 1)
+                self.global_keypoints = np.vstack(
+                    [self.global_keypoints, new_rays[j]]
+                )
+                self.state_cov = np.vstack(
+                    [self.state_cov, np.zeros([2, self.state_cov.shape[1]])]
+                )
+                self.state_cov = np.column_stack(
+                    [self.state_cov, np.zeros([self.state_cov.shape[0], 2])]
+                )
+                self.state_cov[
+                    self.state_cov.shape[0] - 2, self.state_cov.shape[1] - 2
+                ] = self.keypoints_var
+                self.state_cov[
+                    self.state_cov.shape[0] - 1, self.state_cov.shape[1] - 1
+                ] = self.keypoints_var
+                keypoints_index = np.append(
+                    keypoints_index, len(self.global_keypoints) - 1
+                )
 
             keypoints = np.concatenate([keypoints, new_keypoints], axis=0)
 
@@ -377,7 +422,11 @@ class HomographyEKF:
         """
 
         inlier_keypoints, inlier_index, outlier_index = matching_and_ransac(
-            self.previous_img, next_img, self.previous_keypoints, self.previous_keypoints_index)
+            self.previous_img,
+            next_img,
+            self.previous_keypoints,
+            self.previous_keypoints_index,
+        )
 
         # inlier_keypoints = add_gauss(inlier_keypoints, 50, 1280, 720)
 
@@ -420,22 +469,30 @@ class HomographyEKF:
         """
 
         self.previous_img = next_img
-        self.previous_keypoints, self.previous_keypoints_index = self.add_rays(next_img, bounding_box)
+        self.previous_keypoints, self.previous_keypoints_index = self.add_rays(
+            next_img, bounding_box
+        )
 
         self.accumulate_homography.append(self.current_homography)
 
 
 def soccer3_test():
-    sequence = SequenceManager("../../dataset/soccer_dataset/seq3/seq3_ground_truth.mat",
-                               "../../dataset/soccer_dataset/seq3/seq3_330",
-                               "../../dataset/soccer_dataset/seq3/seq3_ground_truth.mat",
-                               "../../dataset/soccer_dataset/seq3/seq3_player_bounding_box.mat")
+    sequence = SequenceManager(
+        "../../dataset/soccer_dataset/seq3/seq3_ground_truth.mat",
+        "../../dataset/soccer_dataset/seq3/seq3_330",
+        "../../dataset/soccer_dataset/seq3/seq3_ground_truth.mat",
+        "../../dataset/soccer_dataset/seq3/seq3_player_bounding_box.mat",
+    )
 
-    line_index, points = load_model("../../dataset/soccer_dataset/highlights_soccer_model.mat")
+    line_index, points = load_model(
+        "../../dataset/soccer_dataset/highlights_soccer_model.mat"
+    )
 
-    first_frame_ptz = (sequence.ground_truth_pan[0],
-                       sequence.ground_truth_tilt[0],
-                       sequence.ground_truth_f[0])
+    first_frame_ptz = (
+        sequence.ground_truth_pan[0],
+        sequence.ground_truth_tilt[0],
+        sequence.ground_truth_f[0],
+    )
 
     first_camera = sequence.camera
     first_camera.set_ptz(first_frame_ptz)
@@ -474,9 +531,14 @@ def soccer3_test():
 
         first_camera.set_ptz((pan[-1], tilt[-1], f[-1]))
 
-        current_homography = np.dot(homography_ekf.accumulate_homography[-1], homography_ekf.model_to_image_homography)
+        current_homography = np.dot(
+            homography_ekf.accumulate_homography[-1],
+            homography_ekf.model_to_image_homography,
+        )
 
-        pose = estimate_camera_from_homography(current_homography, first_camera, points3d_on_field)
+        pose = estimate_camera_from_homography(
+            current_homography, first_camera, points3d_on_field
+        )
 
         print("-----" + str(i) + "--------")
 
@@ -499,23 +561,26 @@ def soccer3_test():
         # cv.imshow("image2", img2)
         # cv.waitKey(0)
 
-    save_camera_pose(np.array(pan), np.array(tilt), np.array(f),
-                     "./result.mat")
+    save_camera_pose(np.array(pan), np.array(tilt), np.array(f), "./result.mat")
 
 
 def basketball_test():
-    sequence = SequenceManager("../../dataset/basketball/ground_truth.mat",
-                               "../../dataset/basketball/images",
-                               "../../dataset/basketball/ground_truth.mat",
-                               "../../dataset/basketball/bounding_box.mat")
+    sequence = SequenceManager(
+        "../../dataset/basketball/ground_truth.mat",
+        "../../dataset/basketball/images",
+        "../../dataset/basketball/ground_truth.mat",
+        "../../dataset/basketball/bounding_box.mat",
+    )
 
     # line_index, points = load_model("../../dataset/soccer_dataset/highlights_soccer_model.mat")
 
     begin_frame = 0
 
-    first_frame_ptz = (sequence.ground_truth_pan[begin_frame],
-                       sequence.ground_truth_tilt[begin_frame],
-                       sequence.ground_truth_f[begin_frame])
+    first_frame_ptz = (
+        sequence.ground_truth_pan[begin_frame],
+        sequence.ground_truth_tilt[begin_frame],
+        sequence.ground_truth_f[begin_frame],
+    )
 
     first_camera = sequence.camera
     first_camera.set_ptz(first_frame_ptz)
@@ -554,9 +619,14 @@ def basketball_test():
 
         first_camera.set_ptz((pan[-1], tilt[-1], f[-1]))
 
-        current_homography = np.dot(homography_ekf.accumulate_homography[-1], homography_ekf.model_to_image_homography)
+        current_homography = np.dot(
+            homography_ekf.accumulate_homography[-1],
+            homography_ekf.model_to_image_homography,
+        )
 
-        pose = estimate_camera_from_homography(current_homography, first_camera, points3d_on_field)
+        pose = estimate_camera_from_homography(
+            current_homography, first_camera, points3d_on_field
+        )
 
         print("-----" + str(i) + "--------")
 
@@ -583,18 +653,20 @@ def basketball_test():
 
 
 def synthesized_test():
-    sequence = SequenceManager(annotation_path="../../dataset/basketball/ground_truth.mat",
-                               image_path="../../dataset/synthesized/images")
+    sequence = SequenceManager(
+        annotation_path="../../dataset/basketball/ground_truth.mat",
+        image_path="../../dataset/synthesized/images",
+    )
 
-    gt_pan, gt_tilt, gt_f = load_camera_pose("../../dataset/synthesized/synthesize_ground_truth.mat", separate=True)
+    gt_pan, gt_tilt, gt_f = load_camera_pose(
+        "../../dataset/synthesized/synthesize_ground_truth.mat", separate=True
+    )
 
     line_index, points = load_model("../../dataset/basketball/basketball_model.mat")
 
     begin_frame = 2400
 
-    first_frame_ptz = (gt_pan[begin_frame],
-                       gt_tilt[begin_frame],
-                       gt_f[begin_frame])
+    first_frame_ptz = (gt_pan[begin_frame], gt_tilt[begin_frame], gt_f[begin_frame])
 
     first_camera = sequence.camera
     first_camera.set_ptz(first_frame_ptz)
@@ -643,10 +715,14 @@ def synthesized_test():
 
         first_camera.set_ptz((pan[-1], tilt[-1], f[-1]))
 
-        current_homography = np.dot(homography_ekf.accumulate_homography[-1],
-                                    homography_ekf.model_to_image_homography)
+        current_homography = np.dot(
+            homography_ekf.accumulate_homography[-1],
+            homography_ekf.model_to_image_homography,
+        )
 
-        pose = estimate_camera_from_homography(current_homography, first_camera, points3d_on_field)
+        pose = estimate_camera_from_homography(
+            current_homography, first_camera, points3d_on_field
+        )
 
         print("-----" + str(i) + "--------")
 
@@ -671,8 +747,12 @@ def synthesized_test():
         # cv.imshow("image2", img2)
         # cv.waitKey(0)
 
-    save_camera_pose(np.array(pan), np.array(tilt), np.array(f),
-                     "C:/graduate_design/experiment_result/baseline2/synthesized/new/homography-2400.mat")
+    save_camera_pose(
+        np.array(pan),
+        np.array(tilt),
+        np.array(f),
+        "C:/graduate_design/experiment_result/baseline2/synthesized/new/homography-2400.mat",
+    )
 
 
 if __name__ == "__main__":

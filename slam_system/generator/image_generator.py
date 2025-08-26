@@ -4,9 +4,8 @@ import numpy as np
 import cv2 as cv
 import scipy.io as sio
 from math import *
-import scipy.signal as sig
-from slam_system.util import save_camera_pose
 from slam_system.util import load_camera_pose
+
 
 class ImageGenerator:
     def __init__(self):
@@ -14,19 +13,13 @@ class ImageGenerator:
         """ inch to meter
         map border is 70 pixel
         1 pixel is 1 inch (1/12 foot) in map"""
-        m1 = np.matrix([[1, 0, -70],
-                        [0, 1, -70],
-                        [0, 0, 1]])
+        m1 = np.matrix([[1, 0, -70], [0, 1, -70], [0, 0, 1]])
 
         """flip Y direction"""
-        m2 = np.matrix([[1, 0, 0],
-                        [0, -1, 600],
-                        [0, 0, 1]])
+        m2 = np.matrix([[1, 0, 0], [0, -1, 600], [0, 0, 1]])
 
         """inch to meter"""
-        m3 = np.matrix([[s, 0, 0],
-                        [0, s, 0],
-                        [0, 0, 1]])
+        m3 = np.matrix([[s, 0, 0], [0, s, 0], [0, 0, 1]])
         self.map_to_world = m3 * m2 * m1
 
     def _camera_to_homography(self, camera):
@@ -45,12 +38,12 @@ class ImageGenerator:
         base_rotation = np.zeros([3, 3])
         cv.Rodrigues(base, base_rotation)
 
-        R = np.dot(np.array([[1, 0, 0],
-                             [0, cos(tilt), sin(tilt)],
-                             [0, -sin(tilt), cos(tilt)]]),
-                   np.array([[cos(pan), 0, -sin(pan)],
-                             [0, 1, 0],
-                             [sin(pan), 0, cos(pan)]]))
+        R = np.dot(
+            np.array(
+                [[1, 0, 0], [0, cos(tilt), sin(tilt)], [0, -sin(tilt), cos(tilt)]]
+            ),
+            np.array([[cos(pan), 0, -sin(pan)], [0, 1, 0], [sin(pan), 0, cos(pan)]]),
+        )
         R = np.dot(R, base_rotation)
 
         # rod = camera[3:6]   # rodurigues
@@ -78,7 +71,6 @@ class ImageGenerator:
 
 
 if __name__ == "__main__":
-
     """input: map an camera
     ouput: a synthesized image"""
     generator = ImageGenerator()
@@ -86,7 +78,7 @@ if __name__ == "__main__":
     seq = sio.loadmat("../../../dataset/basketball/basketball_anno.mat")
     annotation = seq["annotation"]
 
-    court_map = cv.imread('../../../dataset/synthesized/basketball_map.png')
+    court_map = cv.imread("../../../dataset/synthesized/basketball_map.png")
 
     # pan_arr = np.ndarray([annotation.size])
     # tilt_arr = np.ndarray([annotation.size])
@@ -109,16 +101,16 @@ if __name__ == "__main__":
     #
     # save_camera_pose(p_l, t_l, f_l, "../3000-3600.mat")
 
-    pan_arr, tilt_arr, f_arr = load_camera_pose("C:/graduate_design/dataset/synthesized/2400-3000.mat", True)
-
+    pan_arr, tilt_arr, f_arr = load_camera_pose(
+        "C:/graduate_design/dataset/synthesized/2400-3000.mat", True
+    )
 
     for i in range(annotation.size):
-        pan, tilt, _ = annotation[0][i]['ptz'].squeeze()
-        camera = np.array([640, 360, f_arr[i], pan_arr[i], tilt_arr[i], 13.0099, -14.8109, 6.1790])
+        pan, tilt, _ = annotation[0][i]["ptz"].squeeze()
+        camera = np.array(
+            [640, 360, f_arr[i], pan_arr[i], tilt_arr[i], 13.0099, -14.8109, 6.1790]
+        )
         image = generator.generate_image(camera, court_map)
 
         image_name = "../../../dataset/synthesized/test/" + str(i) + ".jpg"
         cv.imwrite(image_name, image)
-
-
-       

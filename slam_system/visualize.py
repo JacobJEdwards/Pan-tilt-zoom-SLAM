@@ -8,7 +8,6 @@ import cv2 as cv
 import scipy.io as sio
 import numpy as np
 from math import *
-from sequence_manager import SequenceManager
 
 
 def load_model(path):
@@ -18,8 +17,8 @@ def load_model(path):
     :return: the line_index and points
     """
     model = sio.loadmat(path)
-    line_index = model['line_segment_index']
-    points = model['points']
+    line_index = model["line_segment_index"]
+    points = model["points"]
     return line_index, points
 
 
@@ -44,12 +43,18 @@ def project_with_homography(matrix, model_points, model_line_segment, rgb_image)
             image_points[i][0] = p[0] / p[2]
             image_points[i][1] = p[1] / p[2]
     import copy
+
     vis_image = copy.deepcopy(rgb_image)
     for i in range(len(model_line_segment)):
         begin = int(model_line_segment[i][0])
         end = int(model_line_segment[i][1])
-        cv.line(vis_image, (int(image_points[begin][0]), int(image_points[begin][1])),
-                (int(image_points[end][0]), int(image_points[end][1])), (0, 0, 255), 2)
+        cv.line(
+            vis_image,
+            (int(image_points[begin][0]), int(image_points[begin][1])),
+            (int(image_points[end][0]), int(image_points[end][1])),
+            (0, 0, 255),
+            2,
+        )
     return vis_image
 
 
@@ -73,12 +78,18 @@ def project_with_PTZCamera(camera, model_points, model_line_segment, rgb_image):
         image_points[i][1] = image_pt[1]
 
     import copy
+
     vis_image = copy.deepcopy(rgb_image)
     for i in range(len(model_line_segment)):
         begin = int(model_line_segment[i][0])
         end = int(model_line_segment[i][1])
-        cv.line(vis_image, (int(image_points[begin][0]), int(image_points[begin][1])),
-                (int(image_points[end][0]), int(image_points[end][1])), (0, 0, 255), 4)
+        cv.line(
+            vis_image,
+            (int(image_points[begin][0]), int(image_points[begin][1])),
+            (int(image_points[end][0]), int(image_points[end][1])),
+            (0, 0, 255),
+            4,
+        )
     return vis_image
 
 
@@ -122,16 +133,24 @@ def project_model(camera, model_points, model_line_segment, rgb_image):
             image_points[i][0] = p[0] / p[2]
             image_points[i][1] = p[1] / p[2]
     import copy
+
     vis_image = copy.deepcopy(rgb_image)
     for i in range(len(model_line_segment)):
         begin = int(model_line_segment[i][0])
         end = int(model_line_segment[i][1])
-        cv.line(vis_image, (int(image_points[begin][0]), int(image_points[begin][1])),
-                (int(image_points[end][0]), int(image_points[end][1])), (0, 0, 255), 2)
+        cv.line(
+            vis_image,
+            (int(image_points[begin][0]), int(image_points[begin][1])),
+            (int(image_points[end][0]), int(image_points[end][1])),
+            (0, 0, 255),
+            2,
+        )
     return vis_image
 
 
-def broadcast_ptz_camera_project_model(common_param, pp, ptz, model_points, model_line_segment, rgb_image):
+def broadcast_ptz_camera_project_model(
+    common_param, pp, ptz, model_points, model_line_segment, rgb_image
+):
     """
     project a 2D field model to the image space
     :param camera: 17 parameters
@@ -157,29 +176,46 @@ def broadcast_ptz_camera_project_model(common_param, pp, ptz, model_points, mode
     # sys.path.append('/Users/jimmy/Source/opencv_util/python_package')
     # def broadcast_camera_projection(common_param, pp, ptz, points):
     from cvx_opt import broadcast_camera_projection
+
     image_points = broadcast_camera_projection(common_param, pp, ptz, points)
 
     import copy
+
     vis_image = copy.deepcopy(rgb_image)
     for i in range(len(model_line_segment)):
         begin = int(model_line_segment[i][0])
         end = int(model_line_segment[i][1])
-        cv.line(vis_image, (int(image_points[begin][0]), int(image_points[begin][1])),
-                (int(image_points[end][0]), int(image_points[end][1])), (0, 0, 255), 2)
+        cv.line(
+            vis_image,
+            (int(image_points[begin][0]), int(image_points[begin][1])),
+            (int(image_points[end][0]), int(image_points[end][1])),
+            (0, 0, 255),
+            2,
+        )
     return vis_image
 
 
 def ut_project_model():
-    camera = np.array([640.000000, 360.000000, 2986.943295,
-                       1.367497, -1.082443, 0.980122,
-                       -16.431519, 14.086604, 5.580546])
-    image = cv.imread('/Users/jimmy/Desktop/00003600.jpg')
-    data = sio.loadmat('/Users/jimmy/Desktop/wwos_soccer_field_model.mat')
+    camera = np.array(
+        [
+            640.000000,
+            360.000000,
+            2986.943295,
+            1.367497,
+            -1.082443,
+            0.980122,
+            -16.431519,
+            14.086604,
+            5.580546,
+        ]
+    )
+    image = cv.imread("/Users/jimmy/Desktop/00003600.jpg")
+    data = sio.loadmat("/Users/jimmy/Desktop/wwos_soccer_field_model.mat")
 
-    model_points = data['points']
-    model_line_segment = data['line_segment_index']
+    model_points = data["points"]
+    model_line_segment = data["line_segment_index"]
     image = project_model(camera, model_points, model_line_segment, image)
-    cv.imshow('image', image)
+    cv.imshow("image", image)
     cv.waitKey(0)
 
     # I = imread('00003600.jpg');
@@ -190,16 +226,19 @@ def ut_project_model():
 
 
 def ut_Visualize():
-    visualize = Visualize("./basketball/basketball_model.mat",
-                          "./basketball/basketball/basketball_anno.mat", "./basketball/basketball/images")
+    visualize = Visualize(
+        "./basketball/basketball_model.mat",
+        "./basketball/basketball/basketball_anno.mat",
+        "./basketball/basketball/images",
+    )
 
     # visualize = Visualize("./two_point_calib_dataset/util/highlights_soccer_model.mat",
     #                       "./two_point_calib_dataset/highlights/seq3_anno.mat", "./seq3_blur/")
 
     camera_pos = sio.loadmat("../result/basketball/DoG-50+SIFT/camera_pose.mat")
-    predict_pan = camera_pos['predict_pan'].squeeze()
-    predict_tilt = camera_pos['predict_tilt'].squeeze()
-    predict_f = camera_pos['predict_f'].squeeze()
+    predict_pan = camera_pos["predict_pan"].squeeze()
+    predict_tilt = camera_pos["predict_tilt"].squeeze()
+    predict_f = camera_pos["predict_f"].squeeze()
 
     for i in range(visualize.sequence.anno_size):
         # for i in range(333):
@@ -212,5 +251,5 @@ def ut_Visualize():
         # cv.waitKey(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ut_project_model()

@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.10)
 
 cmake_policy(SET CMP0015 NEW)
 
@@ -16,18 +16,16 @@ set (USE_ANACONDA 1)
 
 include_directories("${PROJECT_BINARY_DIR}")
 
-set(ANACONDA_DIR /Users/jimmy/anaconda3)
+find_package(Eigen3 REQUIRED)
+find_package(FLANN REQUIRED)
 
-# link Eigen
-set(Eigen_DIR ${ANACONDA_DIR}/include/eigen3)
-include_directories (${Eigen_DIR})
+# Link Eigen
+include_directories(${EIGEN3_INCLUDE_DIR})
 
-set(CONDA_HEAD ${ANACONDA_DIR}/include)
-set(CONDA_LIB ${ANACONDA_DIR}/lib)
+set(BREW_PREFIX "/opt/homebrew")
 
-# link matio, flann
-include_directories (${CONDA_HEAD})
-link_directories (${CONDA_LIB})
+include_directories(${BREW_PREFIX}/include)
+link_directories(${BREW_PREFIX}/lib)
 
 # add directory files for head files?
 include_directories (./ ./bt_dtr ./cvx_gl ./cvx_pgl

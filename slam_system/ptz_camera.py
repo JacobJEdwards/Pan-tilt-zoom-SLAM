@@ -19,7 +19,9 @@ class PTZCamera:
     It provides a bunch of functions for projection and reprojection given camera pose.
     """
 
-    def __init__(self, principal_point, camera_center, base_rotation, displacement=None):
+    def __init__(
+        self, principal_point, camera_center, base_rotation, displacement=None
+    ):
         """
         :param principal_point: principal point (u, v).
         :param camera_center: camera projection center.
@@ -57,9 +59,13 @@ class PTZCamera:
         compute camera matrix
         :return:
         """
-        K = np.array([[self.focal_length, 0, self.principal_point[0]],
-                      [0, self.focal_length, self.principal_point[1]],
-                      [0, 0, 1]])
+        K = np.array(
+            [
+                [self.focal_length, 0, self.principal_point[0]],
+                [0, self.focal_length, self.principal_point[1]],
+                [0, 0, 1],
+            ]
+        )
         return K
 
     def compute_rotation_matrix(self):
@@ -70,12 +76,20 @@ class PTZCamera:
         pan = math.radians(self.pan)
         tilt = math.radians(self.tilt)
 
-        tilt_rot = np.array([[1, 0, 0],
-                             [0, math.cos(tilt), math.sin(tilt)],
-                             [0, -math.sin(tilt), math.cos(tilt)]])
-        pan_rot = np.array([[math.cos(pan), 0, -math.sin(pan)],
-                            [0, 1, 0],
-                            [math.sin(pan), 0, math.cos(pan)]])
+        tilt_rot = np.array(
+            [
+                [1, 0, 0],
+                [0, math.cos(tilt), math.sin(tilt)],
+                [0, -math.sin(tilt), math.cos(tilt)],
+            ]
+        )
+        pan_rot = np.array(
+            [
+                [math.cos(pan), 0, -math.sin(pan)],
+                [0, 1, 0],
+                [math.sin(pan), 0, math.cos(pan)],
+            ]
+        )
         pan_tilt_rotation = np.dot(tilt_rot, pan_rot)
         rotation = np.dot(pan_tilt_rotation, self.base_rotation)
         return rotation
@@ -87,9 +101,13 @@ class PTZCamera:
         """
 
         pan = math.radians(self.pan)
-        pan_rot = np.array([[math.cos(pan), 0, -math.sin(pan)],
-                            [0, 1, 0],
-                            [math.sin(pan), 0, math.cos(pan)]])
+        pan_rot = np.array(
+            [
+                [math.cos(pan), 0, -math.sin(pan)],
+                [0, 1, 0],
+                [math.sin(pan), 0, math.cos(pan)],
+            ]
+        )
         return pan_rot
 
     def compute_tilt_matrix(self):
@@ -98,9 +116,13 @@ class PTZCamera:
         :return:
         """
         tilt = math.radians(self.tilt)
-        tilt_rot = np.array([[1, 0, 0],
-                             [0, math.cos(tilt), math.sin(tilt)],
-                             [0, -math.sin(tilt), math.cos(tilt)]])
+        tilt_rot = np.array(
+            [
+                [1, 0, 0],
+                [0, math.cos(tilt), math.sin(tilt)],
+                [0, -math.sin(tilt), math.cos(tilt)],
+            ]
+        )
         return tilt_rot
 
     def compute_dispalcement(self):
@@ -110,9 +132,7 @@ class PTZCamera:
         """
         fl = self.focal_length
         wt = self.displacement
-        return np.array([wt[0] + wt[3] * fl,
-                         wt[1] + wt[4] * fl,
-                         wt[2] + wt[5] * fl])
+        return np.array([wt[0] + wt[3] * fl, wt[1] + wt[4] * fl, wt[2] + wt[5] * fl])
 
     def recompute_matrix(self):
         """
@@ -120,9 +140,13 @@ class PTZCamera:
         :return:
         """
 
-        K = np.array([[self.focal_length, 0, self.principal_point[0]],
-                      [0, self.focal_length, self.principal_point[1]],
-                      [0, 0, 1]])
+        K = np.array(
+            [
+                [self.focal_length, 0, self.principal_point[0]],
+                [0, self.focal_length, self.principal_point[1]],
+                [0, 0, 1],
+            ]
+        )
         rotation = self.compute_rotation_matrix()
         cc = np.identity(4)
         cc[0][3] = -self.camera_center[0]
@@ -179,12 +203,12 @@ class PTZCamera:
             for j in range(len(ps)):
                 tmp = self.project_3d_point(ps[j])
                 if 0 < tmp[0] < width and 0 < tmp[1] < height:
-                    points = np.row_stack([points, np.asarray(tmp)])
+                    points = np.vstack([points, np.asarray(tmp)])
                     index = np.concatenate([index, [j]], axis=0)
         else:
             for j in range(len(ps)):
                 tmp = self.project_3d_point(ps[j])
-                points = np.row_stack([points, np.asarray(tmp)])
+                points = np.vstack([points, np.asarray(tmp)])
 
         return points, index
 
@@ -199,20 +223,28 @@ class PTZCamera:
 
         K = self.compute_camera_matrix()
 
-        pan_tilt_rotation = np.dot(self.compute_tilt_matrix(), self.compute_pan_matrix())
+        pan_tilt_rotation = np.dot(
+            self.compute_tilt_matrix(), self.compute_pan_matrix()
+        )
         disp = self.compute_dispalcement()
 
-        ray_p = np.array([math.tan(theta), -math.tan(phi) * math.sqrt(math.tan(theta) * math.tan(theta) + 1), 1])
+        ray_p = np.array(
+            [
+                math.tan(theta),
+                -math.tan(phi) * math.sqrt(math.tan(theta) * math.tan(theta) + 1),
+                1,
+            ]
+        )
 
         img_p = np.dot(K, np.dot(pan_tilt_rotation, ray_p) + disp)
         assert img_p[2] != 0.0
 
         return img_p[0] / img_p[2], img_p[1] / img_p[2]
 
-    def project_rays(self, rays, height=0, width=0):
+    def project_rays(self, rays: np.ndarray, height: int=0, width: int=0) -> tuple[np.ndarray, np.ndarray]:
         """
         Project a array of rays to image.
-        :param ps: [n, 2] array of n rays in tripod coordinates.
+        :param rays: [n, 2] array of n rays in tripod coordinates.
         :param height: height of image.
         :param width: width of image.
         :return: projected points in image range ([m, 2] array) and its index in ps
@@ -224,12 +256,12 @@ class PTZCamera:
             for j in range(len(rays)):
                 tmp = self.project_ray(rays[j])
                 if 0 < tmp[0] < width and 0 < tmp[1] < height:
-                    points = np.row_stack([points, np.asarray(tmp)])
+                    points = np.vstack([points, np.asarray(tmp)])
                     index = np.concatenate([index, [j]], axis=0)
         else:
             for j in range(len(rays)):
                 tmp = self.project_ray(rays[j])
-                points = np.row_stack([points, np.asarray(tmp)])
+                points = np.vstack([points, np.asarray(tmp)])
 
         return points, index
 
@@ -250,23 +282,38 @@ class PTZCamera:
         pan = math.radians(self.pan)
         tilt = math.radians(self.tilt)
 
-        k = np.array([[self.focal_length, 0, self.principal_point[0]],
-                      [0, self.focal_length, self.principal_point[1]],
-                      [0, 0, 1]])
+        k = np.array(
+            [
+                [self.focal_length, 0, self.principal_point[0]],
+                [0, self.focal_length, self.principal_point[1]],
+                [0, 0, 1],
+            ]
+        )
 
-        rotation = np.dot(np.array([[1, 0, 0],
-                                    [0, math.cos(tilt), math.sin(tilt)],
-                                    [0, -math.sin(tilt), math.cos(tilt)]]),
-
-                          np.array([[math.cos(pan), 0, -math.sin(pan)],
-                                    [0, 1, 0],
-                                    [math.sin(pan), 0, math.cos(pan)]]))
+        rotation = np.dot(
+            np.array(
+                [
+                    [1, 0, 0],
+                    [0, math.cos(tilt), math.sin(tilt)],
+                    [0, -math.sin(tilt), math.cos(tilt)],
+                ]
+            ),
+            np.array(
+                [
+                    [math.cos(pan), 0, -math.sin(pan)],
+                    [0, 1, 0],
+                    [math.sin(pan), 0, math.cos(pan)],
+                ]
+            ),
+        )
 
         rotation = np.dot(rotation, self.base_rotation)
 
         inv_mat = np.linalg.inv(np.dot(k, rotation))
 
-        coe = (z - self.camera_center[2]) / (inv_mat[2, 0] * x + inv_mat[2, 1] * y + inv_mat[2, 2])
+        coe = (z - self.camera_center[2]) / (
+            inv_mat[2, 0] * x + inv_mat[2, 1] * y + inv_mat[2, 2]
+        )
 
         p = np.dot(inv_mat, coe * np.array([x, y, 1])) + self.camera_center
 
@@ -281,7 +328,7 @@ class PTZCamera:
         points_3d = np.ndarray([0, 3])
         for i in range(len(keypoints)):
             point_3d = self.back_project_to_3d_point(keypoints[i, 0], keypoints[i, 1])
-            points_3d = np.row_stack([points_3d, point_3d])
+            points_3d = np.vstack([points_3d, point_3d])
         return points_3d
 
     def back_project_to_ray(self, x, y):
@@ -291,15 +338,16 @@ class PTZCamera:
         :param y: image point y.
         :return: tuple (2) of ray: pan, tilt in degree.
         """
-        pan = math.radians(self.pan)
-        tilt = math.radians(self.tilt)
-
         im_pos = np.array([x, y, 1])  # homogenerous coordinate
         disp = self.compute_dispalcement()
 
-        K = np.array([[self.focal_length, 0, self.principal_point[0]],
-                      [0, self.focal_length, self.principal_point[1]],
-                      [0, 0, 1]])
+        K = np.array(
+            [
+                [self.focal_length, 0, self.principal_point[0]],
+                [0, self.focal_length, self.principal_point[1]],
+                [0, 0, 1],
+            ]
+        )
         invK = np.linalg.inv(K)
 
         pan_tilt_R = np.dot(self.compute_tilt_matrix(), self.compute_pan_matrix())
@@ -321,7 +369,7 @@ class PTZCamera:
         rays = np.ndarray([0, 2])
         for i in range(len(points)):
             angles = self.back_project_to_ray(points[i, 0], points[i, 1])
-            rays = np.row_stack([rays, angles])
+            rays = np.vstack([rays, angles])
         return rays
 
 
@@ -378,16 +426,21 @@ def estimate_camera_from_homography(homography, camera, points3d_on_field):
 
     pose = camera.get_ptz()
 
-    optimized_pose = least_squares(compute_residual, pose, verbose=0, x_scale='jac', ftol=1e-5, method='trf',
-                                   args=(points3d_on_field[in_image_index], points2d, camera))
+    optimized_pose = least_squares(
+        compute_residual,
+        pose,
+        x_scale="jac",
+        ftol=1e-5,
+        args=(points3d_on_field[in_image_index], points2d, camera),
+    )
 
     return optimized_pose.x
 
 
 def ut_broadcast_camera_model():
     hockey_model = sio.loadmat("../../ice_hockey_1/ice_hockey_model.mat")
-    points = hockey_model['points']
-    line_index = hockey_model['line_segment_index']
+    points = hockey_model["points"]
+    line_index = hockey_model["line_segment_index"]
 
     annotation = sio.loadmat("../../ice_hockey_1/olympic_2010_reference_frame.mat")
     filename = annotation["images"]
@@ -395,11 +448,17 @@ def ut_broadcast_camera_model():
     cameras = annotation["opt_cameras"]
     shared_parameters = annotation["shared_parameters"]
 
-    camera = PTZCamera(cameras[0, 0:2], shared_parameters[0:3, 0],
-                       shared_parameters[3:6, 0], shared_parameters[6:12, 0])
+    camera = PTZCamera(
+        cameras[0, 0:2],
+        shared_parameters[0:3, 0],
+        shared_parameters[3:6, 0],
+        shared_parameters[6:12, 0],
+    )
 
     for i in range(26):
-        img = cv.imread("../../ice_hockey_1/olympic_2010_reference_frame/image/" + filename[i])
+        img = cv.imread(
+            "../../ice_hockey_1/olympic_2010_reference_frame/image/" + filename[i]
+        )
         camera.set_ptz(ptzs[i])
 
         print(camera.projection_matrix)
@@ -425,8 +484,13 @@ def ut_broadcast_camera_model():
             begin = line_index[j][0]
             end = line_index[j][1]
 
-            cv.line(img, (int(image_points[begin][0]), int(image_points[begin][1])),
-                    (int(image_points[end][0]), int(image_points[end][1])), (0, 0, 255), 2)
+            cv.line(
+                img,
+                (int(image_points[begin][0]), int(image_points[begin][1])),
+                (int(image_points[end][0]), int(image_points[end][1])),
+                (0, 0, 255),
+                2,
+            )
 
         cv.imshow("result", img)
         cv.waitKey(0)
@@ -434,13 +498,16 @@ def ut_broadcast_camera_model():
 
 def ut_ray_project():
     annotation = sio.loadmat("../../ice_hockey_1/olympic_2010_reference_frame.mat")
-    filename = annotation["images"]
     ptzs = annotation["opt_ptzs"]
     cameras = annotation["opt_cameras"]
     shared_parameters = annotation["shared_parameters"]
 
-    camera = PTZCamera(cameras[0, 0:2], shared_parameters[0:3, 0],
-                       shared_parameters[3:6, 0], shared_parameters[6:12, 0])
+    camera = PTZCamera(
+        cameras[0, 0:2],
+        shared_parameters[0:3, 0],
+        shared_parameters[3:6, 0],
+        shared_parameters[6:12, 0],
+    )
     # camera = PTZCamera(cameras[0, 0:2], shared_parameters[0:3, 0],
     #                    shared_parameters[3:6, 0])
 
@@ -450,6 +517,6 @@ def ut_ray_project():
     print(camera.back_project_to_ray(0, 320))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ut_broadcast_camera_model()
     # ut_ray_project()
