@@ -1,4 +1,6 @@
 # basketball court geometry model
+from typing import Self
+
 import numpy as np
 import math
 
@@ -12,8 +14,12 @@ class BasketballCourt:
     """
     Generate basketball court template (lines and circles)
     """
+    width: float  # foot
+    height: float
+    points: list[np.ndarray]
+    foot_to_meter: float
 
-    def __init__(self):
+    def __init__(self: Self) -> None:
         self.width = 94  # foot
         self.height = 50
         self.points = []  # two points is a line segment, 0,1 and 2,3
@@ -96,7 +102,7 @@ class BasketballCourt:
         for i in range(n // 2):
             line_index[i][0] = i * 2
             line_index[i][1] = i * 2 + 1
-        return (points, line_index)
+        return points, line_index
 
     # generate grid point on the field surface
     def gridpoint(self, unit):

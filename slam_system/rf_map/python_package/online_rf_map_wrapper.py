@@ -1,4 +1,6 @@
 # online random forest as map
+from typing import Self
+
 import numpy as np
 from ctypes import cdll
 from ctypes import c_void_p
@@ -19,53 +21,54 @@ else:
 
 
 class OnlineRFMap:
-    def __init__(self, rf_file):
+    rf_file: str
+    rf_map: c_void_p
+
+    def __init__(self: Self, rf_file: str) -> None:
         self.rf_file = rf_file
 
         lib.OnlineRFMap_new.restype = c_void_p
         self.rf_map = lib.OnlineRFMap_new()
         # print('rf_map value 1 {}'.format(self.rf_map))
 
-    def create_map(self, feature_label_file, tree_param_file):
+    def create_map(self: Self, feature_label_file: str, tree_param_file: str) -> None:
         """
         :param feature_label_file: a .mat file has 'keypoint', 'descriptor' and 'ptz'
         :param tree_param_file:
         :return:
         """
 
-        fl_file = feature_label_file.encode("utf-8")
-        tr_file = tree_param_file.encode("utf-8")
-        rf_file = self.rf_file.encode("utf-8")
+        fl_file = feature_label_file.encode()
+        tr_file = tree_param_file.encode()
+        rf_file = self.rf_file.encode()
         lib.createOnlineMap.argtypes = [c_void_p, c_char_p, c_char_p, c_char_p]
 
         # print('rf_map point in python {}'.format(self.rf_map))
         # print('rf_map value 2 {}'.format(self.rf_map))
         lib.createOnlineMap(self.rf_map, fl_file, tr_file, rf_file)
 
-    def update_map(self, feature_label_file):
+    def update_map(self: Self, feature_label_file: str) -> None:
         """
         add a feature label file to the model
         :param feature_label_file:
         :return:
         """
 
-        fl_file = feature_label_file.encode("utf-8")
-        rf_file = self.rf_file.encode("utf-8")
+        fl_file = feature_label_file.encode()
+        rf_file = self.rf_file.encode()
 
         lib.updateOnlineMap.argtypes = [c_void_p, c_char_p, c_char_p]
         lib.updateOnlineMap(self.rf_map, fl_file, rf_file)
 
-    def relocalization(self, feature_location_file, init_pan_tilt_zoom):
+    def relocalization(self: Self, feature_location_file: str, init_pan_tilt_zoom: np.ndarray) -> np.ndarray:
         """
-        :param feature_file: .mat file has 'keypoint' and 'descriptor'
+        :param feature_location_file: .mat file has 'keypoint' and 'descriptor'
         :param init_pan_tilt_zoom, 3 x 1, initial camera parameter
         :return:
         """
-        feature_location_file = feature_location_file.encode("utf-8")
+        feature_location_file = feature_location_file.encode()
         test_parameter_file = "".encode()
-        pan_tilt_zoom = np.zeros((3, 1))
-        for i in range(3):
-            pan_tilt_zoom[i] = init_pan_tilt_zoom[i]
+        pan_tilt_zoom = init_pan_tilt_zoom.reshape((3, 1))
 
         lib.relocalizeCameraOnline.argtypes = [c_void_p, c_char_p, c_char_p, c_void_p]
 
@@ -78,37 +81,3 @@ class OnlineRFMap:
         )
         return pan_tilt_zoom
 
-
-def ut_create_update_map():
-    rf_map = OnlineRFMap("debug.txt")
-
-    if system == "Windows":
-        pass
-        # tree_param_file = 'C:/graduate_design/random_forest/two_point_method_world_cup_dataset/ptz_tree_param.txt'
-        # featue_label_files = 'C:/graduate_design/random_forest/two_point_method_world_cup_dataset/train_feature_file.txt'
-    else:
-        tree_param_file = "/Users/jimmy/Code/ptz_slam/dataset/two_point_method_world_cup_dataset/ptz_tree_param.txt"
-        feature_label_files = "/Users/jimmy/Code/ptz_slam/dataset/two_point_method_world_cup_dataset/train_feature_file.txt"
-        f = open(feature_label_files)
-        feature_label_files = f.read().splitlines()
-
-    # create the tree by the first .mat file
-    rf_map.create_map(feature_label_files[0], tree_param_file)
-
-    # update the tree but .mat files one by one
-    for i in range(1, len(feature_label_files)):
-        rf_map.update_map(feature_label_files[i])
-
-    # rf_map.create_map(featue_label_files, tree_param_file)
-
-    if system == "Windows":
-        feature_location_file = "C:/graduate_design/random_forest/two_point_method_world_cup_dataset/test/bra_mex/17.mat"
-    else:
-        feature_location_file = "/Users/jimmy/Code/ptz_slam/dataset/two_point_method_world_cup_dataset/test/bra_mex/17.mat"
-    init_ptz = np.asarray([11, -9, 3110])
-    estimated_ptz = rf_map.relocalization(feature_location_file, init_ptz)
-    print("estimated ptz is {}".format(estimated_ptz))
-
-
-if __name__ == "__main__":
-    ut_create_update_map()

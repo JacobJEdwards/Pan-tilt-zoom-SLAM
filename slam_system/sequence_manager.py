@@ -26,6 +26,7 @@ class SequenceManager:
     ):
         self.height = 720
         self.width = 1280
+        self.bounding_box = []
 
         # annotation data
         if annotation_path is not None:
@@ -81,6 +82,8 @@ class SequenceManager:
             img = cv.imread(
                 self.image_path + "/" + str(index) + ".jpg", cv.IMREAD_GRAYSCALE
             )
+        elif dataset_type == 3:
+            img = cv.imread(self.image_path + "/frame_" + str(index).zfill(5) + ".jpg", cv.IMREAD_GRAYSCALE)
         else:
             print("Unknown dataset!")
             return None

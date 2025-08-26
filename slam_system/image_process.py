@@ -174,7 +174,7 @@ def match_sift_features(
     # /latest/py_tutorials/py_feature2d/py_feature_homography/py_feature_homography.html
     """
     :param keypiont1: list of keypoints
-    :param descrpitor1:
+    :param descriptor1:
     :param keypoint2:
     :param descriptor2:
     :param verbose:

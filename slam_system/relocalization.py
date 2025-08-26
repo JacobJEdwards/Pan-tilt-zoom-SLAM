@@ -8,8 +8,6 @@ return optimized camera pose
 Created by Luke, 2018.9
 """
 
-import numpy as np
-import cv2 as cv
 from scene_map import Map
 from image_process import *
 from sequence_manager import SequenceManager
@@ -109,7 +107,7 @@ def _recompute_matching_ray(keyframe, img, feature_method):
     return pt1, rays
 
 
-def relocalization_camera(map, img, pose):
+def relocalization_camera(map: Map, img: np.ndarray, pose: np.ndarray) -> np.ndarray:
     """
     :param map: object of class Map
     :param img: lost image
@@ -137,10 +135,6 @@ def relocalization_camera(map, img, pose):
     nearest_keyframe = -1
     max_matched_num = 0
 
-    matched_keyframe_pt = None
-    matched_keyframe_index = None
-    matched_cur_frame_pt = None
-
     for i in range(len(map.keyframe_list)):
         keyframe = map.keyframe_list[i]
         # keyframe_kp, keyframe_des = keyframe.feature_pts, keyframe.feature_des
@@ -159,8 +153,6 @@ def relocalization_camera(map, img, pose):
             keyframe_kp, keyframe_des = detect_compute_orb(keyframe.img, 6000)
         elif map.feature_method == "latch":
             keyframe_kp, keyframe_des = detect_compute_latch(keyframe.img, 5000)
-        else:
-            assert False
 
         if len(keyframe_kp) == 0:
             continue
@@ -179,8 +171,6 @@ def relocalization_camera(map, img, pose):
             pt1, index1, pt2, index2 = match_latch_features(
                 keyframe_kp, keyframe_des, kp, des
             )
-        else:
-            assert False
 
         if index1 is not None:
             if len(index1) > max_matched_num:

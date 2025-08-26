@@ -53,11 +53,15 @@ class PtzSlam:
         # hyper params soccer:300 basketball: 500
         self.keypoint_num = 500
 
-        # previous set to 2
-        self.observe_var = 0.1
+        # # previous set to 2
+        # self.observe_var = 0.1
+        #
+        # self.angle_var = 0.001
+        # self.f_var = 1
 
-        self.angle_var = 0.001
-        self.f_var = 1
+        self.observe_var = 2.0  # Variance of the feature detector (pixels)
+        self.angle_var = 0.5   # Allow for more uncertainty in pan/tilt motion
+        self.f_var = 5.0      # Allow for more uncertainty in zoom motion
 
     def compute_h_jacobian(self, pan, tilt, focal_length, rays):
         """
@@ -426,6 +430,7 @@ class PtzSlam:
 
         # update p_global
         q_k = 5 * np.diag([self.angle_var, self.angle_var, self.f_var])
+        # q_k = np.diag([self.angle_var, self.angle_var, self.f_var])
         self.state_cov[0:3, 0:3] += q_k
 
         """

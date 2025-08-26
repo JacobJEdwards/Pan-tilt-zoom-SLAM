@@ -1,5 +1,5 @@
 """generate synthesized image from basketball map and camera pose"""
-
+from typing import Self
 import numpy as np
 import cv2 as cv
 import scipy.io as sio
@@ -8,7 +8,7 @@ from slam_system.util import load_camera_pose
 
 
 class ImageGenerator:
-    def __init__(self):
+    def __init__(self: Self) -> None:
         s = 0.0254
         """ inch to meter
         map border is 70 pixel
@@ -22,7 +22,8 @@ class ImageGenerator:
         m3 = np.matrix([[s, 0, 0], [0, s, 0], [0, 0, 1]])
         self.map_to_world = m3 * m2 * m1
 
-    def _camera_to_homography(self, camera):
+    @staticmethod
+    def _camera_to_homography(camera: np.ndarray) -> np.matrix:
         """
         :param camera: 1 * 9 camera parameter
         :return: 3x3 matrix homography
@@ -56,21 +57,20 @@ class ImageGenerator:
         H = P[:, [0, 1, 3]]
         return H
 
-    def generate_image(self, camera, map):
+    def generate_image(self: Self, camera: np.ndarray, mp: np.ndarray) -> np.ndarray:
         """
         :param camera: 1*9, px, py, f, rotate, camera center
-        :param map: an RGB image
+        :param mp: an RGB image
         :return:    project RGB image
         """
 
         H_map_to_world = self.map_to_world
-        H_world_to_image = generator._camera_to_homography(camera)
+        H_world_to_image = self._camera_to_homography(camera)
         H = H_world_to_image * H_map_to_world
-        image = cv.warpPerspective(map, H, (1280, 720))
+        image = cv.warpPerspective(mp, H, (1280, 720))
         return image
 
-
-if __name__ == "__main__":
+def main() -> None:
     """input: map an camera
     ouput: a synthesized image"""
     generator = ImageGenerator()
@@ -114,3 +114,6 @@ if __name__ == "__main__":
 
         image_name = "../../../dataset/synthesized/test/" + str(i) + ".jpg"
         cv.imwrite(image_name, image)
+
+if __name__ == "__main__":
+    main()

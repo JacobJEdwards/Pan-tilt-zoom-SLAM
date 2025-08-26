@@ -11,7 +11,7 @@ images have been blurred. So there is no need to add mask to bounding_box
 """
 sequence = SequenceManager(
     "../dataset/soccer/ground_truth.mat",
-    "../dataset/soccer/images",
+    "../pre_processing/frames",
     "../dataset/soccer/ground_truth.mat",
     "../dataset/soccer/player_bounding_box.mat",
 )

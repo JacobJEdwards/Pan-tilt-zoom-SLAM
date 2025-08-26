@@ -25,7 +25,7 @@ class PinholeCamera:
 
     def set_principal_point(self, pp):
         assert type(pp) == np.ndarray and pp.shape == (2,)
-        self.principal_point == pp
+        self.principal_point = pp
 
     def project_3d_point(self, p):
         K = np.array(
