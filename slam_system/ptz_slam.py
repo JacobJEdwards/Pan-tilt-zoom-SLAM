@@ -146,7 +146,7 @@ class PtzSlam:
 
         return jacobi_h
 
-    def init_system(self, img, camera, bounding_box=None):
+    def init_system(self, img_color, camera, bounding_box=None):
         """
         This function initializes tracking component.
         It is called: 1. At the first frame. 2. after relocalization
@@ -154,66 +154,28 @@ class PtzSlam:
         :param camera:  first camera pose to initialize system.
         :param bounding_box: first bounding box matrix (optional).
         """
+        player_boxes = detect_players(img_color)
+        img_gray = cv.cvtColor(img_color, cv.COLOR_BGR2GRAY)
+        player_mask = create_mask_from_bounding_boxes(img_gray.shape, player_boxes)
 
-        # step 1: detect keypoints from image
-        # first_img_kp = detect_sift(img, self.keypoint_num)
-        first_img_kp, first_des = detect_compute_sift_array(img, self.keypoint_num)
-        # first_img_kp = detect_orb(img, 300)
-        # first_img_kp = add_gauss(first_img_kp, 50, 1280, 720)
-
-        # x1 = copy.copy(img)
-        # x2 = copy.copy(img)
-        #
-        # visualize_points(img, first_img_kp, (255,0,0), 5)
-        # cv.imshow("test", img)
-        # cv.waitKey(0)
-
-        # # for baseline2
-        # delete_index = []
-        # for i in range(first_img_kp.shape[0]):
-        #     world_x, world_y, _ = camera.back_project_to_3d_point(first_img_kp[i, 0], first_img_kp[i, 1])
-        #     # if world_x < 0 or world_x > 118 or world_y < 0 or world_y > 70:
-        #     if world_x < 0 or world_x > 25 or world_y < 0 or world_y > 18:
-        #         delete_index.append(i)
-        # first_img_kp = np.delete(first_img_kp, delete_index, axis=0)
-        # first_des = np.delete(first_des, delete_index, axis=0)
-
-        # visualize_points(x1, first_img_kp, (255,0,0), 5)
-        # cv.imshow("test2", x1)
-        # cv.waitKey(0)
-
-        # remove keypoints on players if bounding box mask is provided
         if bounding_box is not None:
-            masked_index = keypoints_masking(first_img_kp, bounding_box)
-            first_img_kp = first_img_kp[masked_index]
-            first_des = first_des[masked_index]
+            final_mask = cv.bitwise_and(player_mask, bounding_box)
+        else:
+            final_mask = player_mask
 
-        # visualize_points(x2, first_img_kp, (255,0,0), 5)
-        # cv.imshow("test3", x2)
-        # cv.waitKey(0)
+        first_img_kp, first_des = detect_compute_sift_array(img_gray, self.keypoint_num, mask=final_mask)
 
-        # step 2: back-project keypoint locations to rays by a known camera pose
-        # use key points in first frame to get init rays
         init_rays = camera.back_project_to_rays(first_img_kp)
 
         # initialize rays
         self.rays = np.ndarray([0, 2])
         self.rays = np.vstack([self.rays, init_rays])
-
         self.des = first_des
-
-        # step 3: initialize convariance matrix of states
-        # some parameters are manually selected
-        # Note 0.001 and 1 are two parameters
         self.state_cov = self.angle_var * np.eye(3 + 2 * len(self.rays))
-        self.state_cov[2][2] = self.f_var  # covariance for focal length
-
-        # the previous frame information
-        self.previous_img = img
+        self.state_cov[2][2] = self.f_var
+        self.previous_img = img_gray
         self.previous_keypoints = first_img_kp
         self.previous_keypoints_index = np.array([i for i in range(len(self.rays))])
-
-        # append the first camera to camera list
         self.cameras.append(camera)
 
     def ekf_update(self, observed_keypoints, observed_keypoint_index, height, width):
@@ -329,147 +291,91 @@ class PtzSlam:
         self.state_cov = np.delete(self.state_cov, p_delete_index, axis=0)
         self.state_cov = np.delete(self.state_cov, p_delete_index, axis=1)
 
-    def add_rays(self, img, bounding_box):
-        """
-        Detect new keypoints in the current frame and add associated rays.
-        In each frame, a number of keypoints are detected. These keypoints will
-        be associated with new rays (given the camera pose). These new rays are
-        added to the global ray to maintain the number of visible rays in the image.
-        Otherwise, the number of rays will drop.
-        :param img: current image
-        :param bounding_box: matrix same size as img. 0 is on players, 1 is out of players.
-        :return: keypoints and corresponding global indexes
-        """
-
-        # get height width of image
+    def add_rays(self, img, mask):
         height, width = img.shape[0:2]
 
-        # project global_ray to image. Get existing keypoints
         keypoints, keypoints_index = self.current_camera.project_rays(
             self.rays, height, width
         )
 
-        new_keypoints, new_des = detect_compute_sift_array(img, self.keypoint_num)
+        new_keypoints, new_des = detect_compute_sift_array(img, self.keypoint_num, mask=mask)
 
-        if bounding_box is not None:
-            bounding_box_mask_index = keypoints_masking(new_keypoints, bounding_box)
-            new_keypoints = new_keypoints[bounding_box_mask_index]
-            new_des = new_des[bounding_box_mask_index]
+        existing_kp_mask = np.ones(img.shape[0:2], np.uint8)
+        neighbor_size = 20
+        for x, y in keypoints:
+            up_bound = int(max(0, y - neighbor_size))
+            low_bound = int(min(height, y + neighbor_size))
+            left_bound = int(max(0, x - neighbor_size))
+            right_bound = int(min(width, x + neighbor_size))
+            existing_kp_mask[up_bound:low_bound, left_bound:right_bound] = 0
 
-        mask = np.ones(img.shape[0:2], np.uint8)
+        if new_keypoints.shape[0] > 0:
+            final_mask_indices = keypoints_masking(new_keypoints, existing_kp_mask)
+            new_keypoints = new_keypoints[final_mask_indices]
+            new_des = new_des[final_mask_indices]
 
-        for j in range(len(keypoints)):
-            x, y = keypoints[j]
-            up_bound = int(max(0, y - 50))
-            low_bound = int(min(height, y + 50))
-            left_bound = int(max(0, x - 50))
-            right_bound = int(min(width, x + 50))
-            mask[up_bound:low_bound, left_bound:right_bound] = 0
-
-        existing_keypoints_mask_index = keypoints_masking(new_keypoints, mask)
-        new_keypoints = new_keypoints[existing_keypoints_mask_index]
-        new_des = new_des[existing_keypoints_mask_index]
-
-        # check if exist new keypoints after masking.
-        if new_keypoints is not None:
+        if new_keypoints is not None and new_keypoints.shape[0] > 0:
             new_rays = self.current_camera.back_project_to_rays(new_keypoints)
 
-            # add new ray to ray_global, and add new rows and cols to p_global
             for j in range(len(new_rays)):
                 self.rays = np.vstack([self.rays, new_rays[j]])
                 self.des = np.vstack([self.des, new_des[j]])
-                self.state_cov = np.vstack(
-                    [self.state_cov, np.zeros([2, self.state_cov.shape[1]])]
-                )
-                self.state_cov = np.column_stack(
-                    [self.state_cov, np.zeros([self.state_cov.shape[0], 2])]
-                )
-                self.state_cov[
-                    self.state_cov.shape[0] - 2, self.state_cov.shape[1] - 2
-                ] = self.angle_var
-                self.state_cov[
-                    self.state_cov.shape[0] - 1, self.state_cov.shape[1] - 1
-                ] = self.angle_var
-                keypoints_index = np.append(keypoints_index, len(self.rays) - 1)
+                self.state_cov = np.vstack([self.state_cov, np.zeros([2, self.state_cov.shape[1]])])
+                self.state_cov = np.column_stack([self.state_cov, np.zeros([self.state_cov.shape[0], 2])])
+                self.state_cov[-2, -2] = self.angle_var
+                self.state_cov[-1, -1] = self.angle_var
 
-            keypoints = np.concatenate([keypoints, new_keypoints], axis=0)
+            keypoints = np.concatenate([keypoints, new_keypoints], axis=0) if keypoints.shape[0] > 0 else new_keypoints
+            keypoints_index = np.arange(len(self.rays))
 
         return keypoints, keypoints_index
 
-    def tracking(self, next_img, bad_tracking_percentage, bounding_box=None):
+    def tracking(self, next_img_color, bad_tracking_percentage, bounding_box=None):
+        player_boxes = detect_players(next_img_color)
+        next_img_gray = cv.cvtColor(next_img_color, cv.COLOR_BGR2GRAY)
+        player_mask = create_mask_from_bounding_boxes(next_img_gray.shape, player_boxes)
+
+        if bounding_box is not None:
+            final_mask = cv.bitwise_and(player_mask, bounding_box)
+        else:
+            final_mask = player_mask
+
         inlier_keypoints, inlier_index, outlier_index = matching_and_ransac(
             self.previous_img,
-            next_img,
+            next_img_gray,
             self.previous_keypoints,
             self.previous_keypoints_index,
+            mask=final_mask
         )
 
-        # inlier_keypoints = add_gauss(inlier_keypoints, 50, 1280, 720)
-
-        # compute inlier percentage as the measurement for tracking quality
         tracking_percentage = len(inlier_index) / len(self.previous_keypoints) * 100
         if tracking_percentage < bad_tracking_percentage:
             self.bad_tracking_cnt += 1
 
         if self.bad_tracking_cnt > 3:
-            # if len(self.rf_map.keyframe_list) > 8:
             self.tracking_lost = True
             self.bad_tracking_cnt = 0
-        """
-        ===============================
-        1. predict step
-        ===============================
-        """
 
-        # update camera pose with constant speed model
         self.current_camera = copy.deepcopy(self.cameras[-1])
         self.current_camera.set_ptz(self.current_camera.get_ptz() + self.velocity)
-
         if not self.tracking_lost:
             self.cameras.append(self.current_camera)
 
-        # update p_global
         q_k = 5 * np.diag([self.angle_var, self.angle_var, self.f_var])
-        # q_k = np.diag([self.angle_var, self.angle_var, self.f_var])
         self.state_cov[0:3, 0:3] += q_k
 
-        """
-        ===============================
-        2. update step
-        ===============================
-        """
-
-        height, width = next_img.shape[0:2]
+        height, width = next_img_gray.shape[0:2]
         self.ekf_update(inlier_keypoints, inlier_index, height, width)
-
-        """
-        ===============================
-        3. delete outlier_index
-        ===============================
-        """
 
         self.remove_rays(outlier_index)
 
-        """
-        ===============================
-        4.  add new features & update previous frame
-        ===============================
-        """
-
-        self.previous_img = next_img
+        self.previous_img = next_img_gray
         self.previous_keypoints, self.previous_keypoints_index = self.add_rays(
-            next_img, bounding_box
+            next_img_gray, final_mask
         )
 
-        print("tracking", tracking_percentage)
-
-        # if tracking_percentage > bad_tracking_percentage:
-        # basketball set to (10, 25), soccer maybe (10, 15)
         if self.keyframe_map.good_new_keyframe(self.current_camera.get_ptz(), 10, 15):
             self.new_keyframe = True
-
-        # if self.rf_map.good_keyframe(self.current_camera.get_ptz(), 10, 15):
-        #     self.new_keyframe = True
 
     def relocalize(self, img, camera, enable_rf=False, bounding_box=None):
         """

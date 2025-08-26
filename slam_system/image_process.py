@@ -7,6 +7,73 @@ Create by Jimmy and Luke, 2018.9
 import cv2 as cv
 import numpy as np
 import random
+from ultralytics import YOLO
+
+model = YOLO('yolov8n.pt')
+
+def detect_players(image):
+    results = model(image, classes=[0], verbose=False)
+
+    return results[0].boxes.xyxy.cpu().numpy()
+
+def create_mask_from_bounding_boxes(image_shape, bounding_boxes):
+    mask = np.ones(image_shape[:2], dtype=np.uint8)
+    for box in bounding_boxes:
+        x1, y1, x2, y2 = map(int, box)
+        cv.rectangle(mask, (x1, y1), (x2, y2), 0, -1)
+
+    return mask
+
+def detect_compute_sift(im: np.ndarray, nfeatures: int, mask: np.ndarray = None, verbose: bool=False) -> tuple[list, np.ndarray]:
+    if len(im.shape) == 3:
+        im = cv.cvtColor(im, cv.COLOR_BGR2GRAY)
+
+    sift = cv.SIFT.create(nfeatures=nfeatures)
+    key_point, descriptor = sift.detectAndCompute(im, mask)
+
+    if 0 < nfeatures < len(key_point):
+        key_point = key_point[:nfeatures]
+        descriptor = descriptor[:nfeatures]
+
+    if verbose:
+        print("detect: %d SIFT keypoints." % len(key_point))
+
+    return key_point, descriptor
+
+def detect_compute_sift_array(im: np.ndarray, nfeatures: int, mask: np.ndarray = None, norm: bool=True) -> tuple[np.ndarray, np.ndarray]:
+    keyframe_kp, keyframe_des = detect_compute_sift(im, nfeatures, mask)
+
+    array_pts = np.zeros((len(keyframe_kp), 2), dtype=np.float64)
+    for i in range(len(keyframe_kp)):
+        array_pts[i][0] = keyframe_kp[i].pt[0]
+        array_pts[i][1] = keyframe_kp[i].pt[1]
+
+    if norm and keyframe_des is not None:
+        norm = np.linalg.norm(keyframe_des, axis=1).reshape(-1, 1)
+        array_des = np.divide(keyframe_des, norm).astype(np.float64)
+    else:
+        array_des = keyframe_des
+
+    return array_pts, array_des
+
+def detect_players_and_create_mask(image):
+    """
+    Detects players in an image using YOLOv8 and returns a mask.
+    The mask is 1 where there are no players and 0 where players are detected.
+    """
+    # Detect objects in the image. We are only interested in 'person' which is class 0 in COCO.
+    results = model(image, classes=[0], verbose=False)
+
+    # Get bounding boxes
+    bounding_boxes = results[0].boxes.xyxy.cpu().numpy()
+
+    # Create a mask
+    mask = np.ones(image.shape[:2], dtype=np.uint8)
+    for box in bounding_boxes:
+        x1, y1, x2, y2 = map(int, box)
+        cv.rectangle(mask, (x1, y1), (x2, y2), 0, -1) # Set player regions to 0
+
+    return mask
 
 
 def detect_sift(im: np.ndarray, nfeatures: int=50) -> np.ndarray:
@@ -43,55 +110,6 @@ def detect_orb(im: np.ndarray, nfeatures: int=1000) -> np.ndarray:
     for i in range(N):
         pts[i][0], pts[i][1] = keypoints[i].pt[0], keypoints[i].pt[1]
     return pts
-
-
-def detect_compute_sift(im: np.ndarray, nfeatures: int, verbose: bool=False) -> tuple[list, np.ndarray]:
-    """
-    :param im: RGB or gray image
-    :param nfeatures:
-    :return: two lists of key_point (2 dimension), and descriptor (128 dimension)
-    """
-    # pre-processing if input is color image
-    assert isinstance(im, np.ndarray)
-    # if len(im.shape) == 3 and im.shape[0] == 3:
-    #     im = cv.cvtColor(im, cv.COLOR_BGR2GRAY)
-
-    sift = cv.SIFT.create(nfeatures=nfeatures)
-    key_point, descriptor = sift.detectAndCompute(im, None)
-
-    """SIFT may detect more keypoint than set"""
-
-    if 0 < nfeatures < len(key_point):
-        key_point = key_point[:nfeatures]
-        descriptor = descriptor[:nfeatures]
-
-    if verbose:
-        print("detect: %d SIFT keypoints." % len(key_point))
-
-    return key_point, descriptor
-
-
-def detect_compute_sift_array(im: np.ndarray, nfeatures: int, norm: bool=True) -> tuple[np.ndarray, np.ndarray]:
-    """
-    an option for SIFT keypoints detection if arrays are needed.
-    :param im: RGB or gray image
-    :param nfeatures: number of SIFT keypoints
-    :return: two numpy array of shape (N, 2) and (N, 128)
-    """
-    keyframe_kp, keyframe_des = detect_compute_sift(im, nfeatures)
-
-    array_pts = np.zeros((len(keyframe_kp), 2), dtype=np.float64)
-    for i in range(len(keyframe_kp)):
-        array_pts[i][0] = keyframe_kp[i].pt[0]
-        array_pts[i][1] = keyframe_kp[i].pt[1]
-
-    if norm:
-        norm = np.linalg.norm(keyframe_des, axis=1).reshape(-1, 1)
-        array_des = np.divide(keyframe_des, norm).astype(np.float64)
-    else:
-        array_des = keyframe_des
-
-    return array_pts, array_des
 
 
 def detect_compute_orb(im: np.ndarray, nfeatures: int=1000, verbose: bool=False) -> tuple[list, np.ndarray]:
@@ -458,7 +476,7 @@ def homography_ransac(
 
 
 def matching_and_ransac(
-    img1, img2, img1_keypoints, img1_keypoints_index, visualize=False
+    img1, img2, img1_keypoints, img1_keypoints_index, mask=None, visualize=False
 ):
     """
     matching with sparse optical flow and run ransac to get homography based inliers.
@@ -482,9 +500,7 @@ def matching_and_ransac(
     previous_matched_keypoints = img1_keypoints[local_matched_index]
 
     # run RANSAC, local_inlier_index is index in the input for ransac
-    local_inlier_index = homography_ransac(
-        previous_matched_keypoints, current_keypoints, reprojection_threshold=0.5
-    )
+    local_inlier_index = homography_ransac(previous_matched_keypoints, current_keypoints)
 
     # inlier_keypoints is keypoints in current frame (img2) after 1: optical flow 2: homography RANSAC
     inlier_keypoints = current_keypoints[local_inlier_index]
@@ -493,7 +509,7 @@ def matching_and_ransac(
     previous_inlier_keypoints = previous_matched_keypoints[local_inlier_index]
 
     # an option to show the matching result for each frame
-    if visualize is True:
+    if visualize:
         vis = draw_matches(img1, img2, previous_inlier_keypoints, inlier_keypoints)
         cv.imshow("test", vis)
         cv.waitKey(0)

@@ -7,17 +7,19 @@ from sequence_manager import SequenceManager
 from ptz_slam import PtzSlam
 from util import save_camera_pose
 from ptz_camera import PTZCamera
+from image_process import detect_players, create_mask_from_bounding_boxes
 
 IMAGE_DIR = "../pre_processing/frames"
 OUTPUT_FILE = "./my_football_realtime_result.mat"
 PROCESSING_INTERVAL = 10
-FPS = 30  
+FPS = 30
 
 class SharedData:
     def __init__(self):
         self.latest_pan = None
         self.latest_tilt = None
         self.latest_zoom = None
+        self.latest_bounding_boxes = []
         self.processing_active = True
         self.lock = threading.Lock()
 
@@ -28,7 +30,7 @@ def slam_worker(slam, sequence, first_camera, image_files):
     tilt_list = [first_camera.get_ptz()[1]]
     zoom_list = [first_camera.get_ptz()[2]]
 
-    for i in range(1, sequence.length):
+    for i in range(1, len(image_files)):
         with shared_data.lock:
             if not shared_data.processing_active:
                 break
@@ -39,17 +41,19 @@ def slam_worker(slam, sequence, first_camera, image_files):
 
         if i % PROCESSING_INTERVAL == 0:
             print(f"===== Processing frame {i} =====")
-            frame_gray = cv.cvtColor(frame_color, cv.COLOR_BGR2GRAY)
 
-            slam.tracking(next_img=frame_gray, bad_tracking_percentage=80, bounding_box=None)
+            slam.tracking(next_img_color=frame_color, bad_tracking_percentage=80, bounding_box=None)
+
+            with shared_data.lock:
+                shared_data.latest_bounding_boxes = detect_players(frame_color)
 
             if slam.tracking_lost:
                 print("Tracking lost! Relocalizing...")
-                relocalized_camera = slam.relocalize(frame_gray, slam.current_camera)
-                slam.init_system(frame_gray, relocalized_camera, bounding_box=None)
+                relocalized_camera = slam.relocalize(frame_color, slam.current_camera, bounding_box=None)
+                slam.init_system(frame_color, relocalized_camera, bounding_box=None)
             elif slam.new_keyframe:
                 print("Adding a new keyframe.")
-                slam.add_keyframe(frame_gray, slam.current_camera, i)
+                slam.add_keyframe(cv.cvtColor(frame_color, cv.COLOR_BGR2GRAY), slam.current_camera, i)
 
         latest_camera = slam.cameras[-1]
         pan, tilt, zoom = latest_camera.get_ptz()
@@ -93,18 +97,19 @@ if __name__ == "__main__":
     initial_pan, initial_tilt, initial_focal_length = 0.0, 0.0, 3000.0
     first_camera.set_ptz((initial_pan, initial_tilt, initial_focal_length))
 
-    first_frame_gray = cv.cvtColor(first_frame_for_size, cv.COLOR_BGR2GRAY)
-    slam.init_system(first_frame_gray, first_camera)
-    slam.add_keyframe(first_frame_gray, first_camera, 0)
+    slam.init_system(first_frame_for_size, first_camera)
+    slam.add_keyframe(cv.cvtColor(first_frame_for_size, cv.COLOR_BGR2GRAY), first_camera, 0)
 
     with shared_data.lock:
         shared_data.latest_pan, shared_data.latest_tilt, shared_data.latest_zoom = first_camera.get_ptz()
+        shared_data.latest_bounding_boxes = detect_players(first_frame_for_size)
 
     slam_thread = threading.Thread(target=slam_worker, args=(slam, sequence, first_camera, image_files))
     slam_thread.start()
 
     start_time = time.time()
     i = 0
+    previous_bounding_boxes = None
     while i < len(image_files):
         target_time = start_time + i / FPS
         current_time = time.time()
@@ -121,16 +126,27 @@ if __name__ == "__main__":
             zoom = shared_data.latest_zoom
             active = shared_data.processing_active
 
+        if i % 5 == 0:
+            bounding_boxes = detect_players(frame_color)
+            previous_bounding_boxes = bounding_boxes
+        else:
+            bounding_boxes = previous_bounding_boxes if previous_bounding_boxes is not None else detect_players(frame_color)
+
         vis_frame = frame_color.copy()
+
+        for box in bounding_boxes:
+            x1, y1, x2, y2 = map(int, box)
+            cv.rectangle(vis_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
         cv.putText(vis_frame, f"Frame: {i}", (20, 40), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv.putText(vis_frame, f"Pan: {pan:.2f}", (20, 80), cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
-        cv.putText(vis_frame, f"Tilt: {tilt:.2f}", (20, 110), cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
-        cv.putText(vis_frame, f"Zoom: {zoom:.2f}", (20, 140), cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+        cv.putText(vis_frame, f"Pan: {pan:.10f}", (20, 80), cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+        cv.putText(vis_frame, f"Tilt: {tilt:.10f}", (20, 110), cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+        cv.putText(vis_frame, f"Zoom: {zoom:.10f}", (20, 140), cv.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
 
         cv.imshow("PTZ SLAM - Real Time Simulation", vis_frame)
 
         key = cv.waitKey(1) & 0xFF
-        if key == ord('q'):
+        if key == ord('q') or not active:
             with shared_data.lock:
                 shared_data.processing_active = False
             break
