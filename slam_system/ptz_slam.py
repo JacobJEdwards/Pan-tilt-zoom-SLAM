@@ -6,11 +6,11 @@ Created by Luke, 2018.9
 
 import copy
 
-from scene_map import Map, RandomForestMap
-from key_frame import KeyFrame
-from relocalization import relocalization_camera
-from image_process import *
-from util import *
+from .scene_map import Map, RandomForestMap
+from .key_frame import KeyFrame
+from .relocalization import relocalization_camera
+from .image_process import *
+from .util import *
 
 
 class PtzSlam:

@@ -15,12 +15,12 @@ import math
 import random
 
 from scipy.optimize import least_squares
-from key_frame import KeyFrame
-from image_process import build_matching_graph, draw_matches
-from sequence_manager import SequenceManager
-from ptz_camera import compute_residual
-from transformation import TransFunction
-from util import overlap_pan_angle
+from .key_frame import KeyFrame
+from .image_process import build_matching_graph, draw_matches
+from .sequence_manager import SequenceManager
+from .ptz_camera import compute_residual
+from .transformation import TransFunction
+from .util import overlap_pan_angle
 
 
 def _compute_residual(

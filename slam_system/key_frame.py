@@ -4,7 +4,7 @@ Keyframe class.
 Created by Luke, 2018.9
 """
 
-from util import *
+from .util import *
 
 
 class KeyFrame:

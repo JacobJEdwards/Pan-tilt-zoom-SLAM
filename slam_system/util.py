@@ -21,7 +21,7 @@ elif sys_pf == "win32":
 
 import matplotlib.pyplot as plt
 
-from image_process import blur_sub_image, detect_sift
+from .image_process import blur_sub_image, detect_sift
 
 
 def get_projection_matrix_with_camera(camera):

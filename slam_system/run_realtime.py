@@ -2,11 +2,11 @@ import cv2 as cv
 import numpy as np
 import threading
 import time
-from sequence_manager import SequenceManager
-from ptz_slam import PtzSlam
-from util import save_camera_pose
-from ptz_camera import PTZCamera
-from image_process import detect_players
+from slam_system.sequence_manager import SequenceManager
+from slam_system.ptz_slam import PtzSlam
+from slam_system.util import save_camera_pose
+from slam_system.ptz_camera import PTZCamera
+from slam_system.image_process import detect_players
 from pathlib import Path
 
 IMAGE_DIR = Path("../pre_processing/frames")

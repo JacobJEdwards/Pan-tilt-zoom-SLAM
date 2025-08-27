@@ -5,14 +5,11 @@ Created by Luke, 2018.9
 
 """
 
-import numpy as np
-import cv2 as cv
-import scipy.io as sio
 import copy
-from util import *
-from image_process import *
-from ptz_camera import PTZCamera
-from transformation import TransFunction
+from slam_system.util import *
+from slam_system.image_process import *
+from .ptz_camera import PTZCamera
+from .transformation import TransFunction
 import scipy.signal as sig
 
 
