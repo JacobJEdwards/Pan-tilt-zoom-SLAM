@@ -1,18 +1,19 @@
 import cv2 as cv
 import numpy as np
-import os
 import threading
 import time
 from sequence_manager import SequenceManager
 from ptz_slam import PtzSlam
 from util import save_camera_pose
 from ptz_camera import PTZCamera
-from image_process import detect_players, create_mask_from_bounding_boxes
+from image_process import detect_players
+from pathlib import Path
 
-IMAGE_DIR = "../pre_processing/frames"
-OUTPUT_FILE = "./my_football_realtime_result.mat"
+IMAGE_DIR = Path("../pre_processing/frames")
+OUTPUT_FILE = Path("./my_football_realtime_result.mat")
 PROCESSING_INTERVAL = 10
-FPS = 30
+BB_INTERVAL = 5
+FPS = 25
 
 class SharedData:
     def __init__(self):
@@ -25,7 +26,7 @@ class SharedData:
 
 shared_data = SharedData()
 
-def slam_worker(slam, sequence, first_camera, image_files):
+def slam_worker(slam: PtzSlam, first_camera: PTZCamera, image_files: list[Path], processing_interval: int) -> None:
     pan_list = [first_camera.get_ptz()[0]]
     tilt_list = [first_camera.get_ptz()[1]]
     zoom_list = [first_camera.get_ptz()[2]]
@@ -35,14 +36,14 @@ def slam_worker(slam, sequence, first_camera, image_files):
             if not shared_data.processing_active:
                 break
 
-        frame_color = cv.imread(image_files[i])
+        frame_color = cv.imread(str(image_files[i]))
         if frame_color is None:
             continue
 
         if i % PROCESSING_INTERVAL == 0:
             print(f"===== Processing frame {i} =====")
 
-            slam.tracking(next_img_color=frame_color, bad_tracking_percentage=80, bounding_box=None)
+            slam.tracking(next_img_color=frame_color, bad_tracking_percentage=80)
 
             with shared_data.lock:
                 shared_data.latest_bounding_boxes = detect_players(frame_color)
@@ -73,21 +74,22 @@ def slam_worker(slam, sequence, first_camera, image_files):
     save_camera_pose(pan_list, tilt_list, zoom_list, OUTPUT_FILE)
     print(f"SLAM processing complete. Results saved to {OUTPUT_FILE}")
 
-if __name__ == "__main__":
+def run_realtime(image_dir: Path = IMAGE_DIR, fps: int = FPS, bb_interval: int = BB_INTERVAL, processing_interval:
+int = PROCESSING_INTERVAL) -> None:
     try:
-        image_files = sorted([os.path.join(IMAGE_DIR, f) for f in os.listdir(IMAGE_DIR) if f.endswith(('.jpg', '.png'))])
+        image_files = sorted([f for f in image_dir.iterdir() if f.suffix in ['.jpg','.png']])
         if not image_files:
-            print(f"Error: No image files found in {IMAGE_DIR}")
+            print(f"Error: No image files found in {image_files}")
             exit()
     except FileNotFoundError:
-        print(f"Error: The directory {IMAGE_DIR} does not exist.")
+        print(f"Error: The directory {image_dir} does not exist.")
         exit()
 
     sequence = SequenceManager()
     sequence.length = len(image_files)
     slam = PtzSlam()
 
-    first_frame_for_size = cv.imread(image_files[0])
+    first_frame_for_size = cv.imread(str(image_files[0]))
     height, width, _ = first_frame_for_size.shape
     u, v = width / 2, height / 2
 
@@ -104,19 +106,19 @@ if __name__ == "__main__":
         shared_data.latest_pan, shared_data.latest_tilt, shared_data.latest_zoom = first_camera.get_ptz()
         shared_data.latest_bounding_boxes = detect_players(first_frame_for_size)
 
-    slam_thread = threading.Thread(target=slam_worker, args=(slam, sequence, first_camera, image_files))
+    slam_thread = threading.Thread(target=slam_worker, args=(slam, first_camera, image_files, processing_interval))
     slam_thread.start()
 
     start_time = time.time()
     i = 0
     previous_bounding_boxes = None
     while i < len(image_files):
-        target_time = start_time + i / FPS
+        target_time = start_time + i / fps
         current_time = time.time()
         if current_time < target_time:
             time.sleep(target_time - current_time)
 
-        frame_color = cv.imread(image_files[i])
+        frame_color = cv.imread(str(image_files[i]))
         if frame_color is None:
             break
 
@@ -126,7 +128,7 @@ if __name__ == "__main__":
             zoom = shared_data.latest_zoom
             active = shared_data.processing_active
 
-        if i % 5 == 0:
+        if i % bb_interval == 0:
             bounding_boxes = detect_players(frame_color)
             previous_bounding_boxes = bounding_boxes
         else:
@@ -158,3 +160,6 @@ if __name__ == "__main__":
 
     slam_thread.join()
     cv.destroyAllWindows()
+
+if __name__ == "__main__":
+    run_realtime()
